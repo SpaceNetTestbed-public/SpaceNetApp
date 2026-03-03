@@ -1,0 +1,8 @@
+ docker run -d -it -p 5000:5000 -v ${PWD}:/app --name dev flask
+ docker stop dev
+ docker remove dev
+ docker exec -it dev bash
+
+ docker compose up --build
+ docker compose stop
+ docker compose start

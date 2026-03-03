@@ -1,0 +1,8 @@
+[submodule "spacenet-backend"]
+	path = spacenet-backend
+	url = git@code.vt.edu:netsat/spacenet-backend.git
+	branch = main
+[submodule "spacenet-gui"]
+	path = spacenet-gui
+	url = git@code.vt.edu:netsat/spacenet-gui.git
+	branch = main
