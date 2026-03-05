@@ -1,6 +1,7 @@
 version: "3.9"
 
 services:
+
   db:
     image: postgres:15
     container_name: spacenet-db
@@ -12,11 +13,19 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  redis:
+    image: redis:7
+    container_name: spacenet-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
   backend:
     build: ./spacenet-backend
     container_name: spacenet-backend
     depends_on:
       - db
+      - redis
     ports:
       - "5000:5000"
     volumes:
@@ -25,6 +34,41 @@ services:
       - .env
     environment:
       - WATCHDOG_USE_POLLING=true
+    restart: unless-stopped
+    command: >
+      bash -c "
+      flask db upgrade &&
+      flask run --host=0.0.0.0 --reload
+      "
+
+  worker:
+    build: ./spacenet-backend
+    container_name: spacenet-worker
+    depends_on:
+      - redis
+      - db
+    volumes:
+      - ./spacenet-backend:/app
+    env_file:
+      - .env
+    environment:
+      - RQ_REDIS_URL=redis://redis:6379/0
+    command: rq worker default
+    restart: unless-stopped
+
+  worker_plot:
+    build: ./spacenet-backend
+    container_name: spacenet-worker-plot
+    depends_on:
+      - redis
+      - db
+    volumes:
+      - ./spacenet-backend:/app
+    env_file:
+      - .env
+    environment:
+      - RQ_REDIS_URL=redis://redis:6379/0
+    command: rq worker plot
     restart: unless-stopped
 
   frontend:
@@ -36,7 +80,8 @@ services:
       - ./spacenet-gui:/app
       - /app/node_modules
     environment:
-      - CHOKIDAR_USEPOLLING=true
+    - CHOKIDAR_USEPOLLING=true
+    - WATCHPACK_POLLING=true
     restart: unless-stopped
 
 volumes:
