@@ -79,6 +79,7 @@ services:
     volumes:
       - ./spacenet-gui:/app
       - /app/node_modules
+    command: npm run dev
     environment:
     - CHOKIDAR_USEPOLLING=true
     - WATCHPACK_POLLING=true
