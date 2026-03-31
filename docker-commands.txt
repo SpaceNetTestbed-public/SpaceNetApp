@@ -6,3 +6,5 @@
  docker compose up --build
  docker compose stop
  docker compose start
+
+ docker exec -it spacenet-db psql -U spacenet_user -d spacenet_db
