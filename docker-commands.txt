@@ -8,3 +8,6 @@
  docker compose start
 
  docker exec -it spacenet-db psql -U spacenet_user -d spacenet_db
+
+ To get rid of database data do:
+ docker compose down -v
