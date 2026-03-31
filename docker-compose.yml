@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
 
   db:
@@ -44,6 +42,7 @@ services:
   worker:
     build: ./spacenet-backend
     container_name: spacenet-worker
+    privileged: true
     depends_on:
       - redis
       - db
@@ -53,12 +52,15 @@ services:
       - .env
     environment:
       - RQ_REDIS_URL=redis://redis:6379/0
+      - SHELL=/bin/bash
+      - PYTHONPATH=/app/dynamic-topology-generator:/app
     command: rq worker default
     restart: unless-stopped
 
   worker_plot:
     build: ./spacenet-backend
     container_name: spacenet-worker-plot
+    privileged: true
     depends_on:
       - redis
       - db
@@ -68,6 +70,8 @@ services:
       - .env
     environment:
       - RQ_REDIS_URL=redis://redis:6379/0
+      - SHELL=/bin/bash
+      - PYTHONPATH=/app/dynamic-topology-generator:/app
     command: rq worker plot
     restart: unless-stopped
 
@@ -79,6 +83,7 @@ services:
     volumes:
       - ./spacenet-gui:/app
       - /app/node_modules
+    command: npm run dev
     environment:
     - CHOKIDAR_USEPOLLING=true
     - WATCHPACK_POLLING=true
