@@ -1,0 +1,21 @@
+# Main configuration script for the SpaceNet Mininet Simulator
+# ~~~ Main Settings ~~~
+DeleteAppResults: False
+Verbose: True
+Optimize: True
+MonitorResource: False
+SimTimeMode: discrete
+# Technical configurations for link parameters
+PrePing: True # Will have all devices ping neighbors before starting the app
+R2Q: 1 # Rate to quantum ratio for the network l inks (default is 10). Lower values increase frequency of packet bursts - benefits high latency networks
+DynamicLinkQueueSize: True # Allow custom netem packet queue sizes for links based on bandwidth-delay product (default is 1000). Higher values increase the number of packets that can be buffered, but increases memory usage
+# ~~~ App configurations ~~~
+AppName: Ping # Options- Ping, iPerf, CLI
+# For Ping and iPerf
+# Useable keywords- firstGS, lastGS, firstSat, lastSat
+SourceDeviceName: 1814      #1839
+DestDeviceName:  1815       #1830
+PauseAtIntervalChange: True # Will pause app while network links and routes are updated, then resume
+# For CLI
+CLIStartInterval: 0
+CLIIntervalCount: 3

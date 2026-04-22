@@ -1,0 +1,32 @@
+operator_name: starlink
+Sim_Length:
+  TimeStepDuration: 10
+  TimeStepCount: 12
+Sim_Date_Time:
+  StartYear: 2024
+  StartMonth: 9
+  StartDay: 27
+  StartHour: 22
+  StartMinute: 15
+  StartSecond: 6
+generate_TLE: false
+shells:
+  shell1:
+    name: shell1
+    orbits: 72
+    sat_per_orbit: 22
+    altitude: 540
+    inclination: 53.2
+    pattern: walker_delta
+    ipp_increment: 1
+    body: Earth
+  shell2:
+    name: shell2
+    orbits: 5
+    sat_per_orbit: 46
+    altitude: 560
+    inclination: 97.6
+    pattern: walker_delta
+    ipp_increment: 1
+    body: Earth
+TLEFilePath: dynamic-topology-generator/utils/

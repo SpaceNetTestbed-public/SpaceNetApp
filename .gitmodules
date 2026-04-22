@@ -1,0 +1,8 @@
+[submodule "dynamic-topology-generator"]
+	path = spacenet-backend/dynamic-topology-generator
+	url = git@github.com:VTSpaceNetLab/VTSpaceNetPhase1.git
+	branch = main-2026.4
+[submodule "constellation-simulator-main"]
+	path = spacenet-backend/constellation-simulator-main
+	url = git@github.com:VTSpaceNetLab/VTSpaceNetPhase2.git
+	branch = main-2026.4

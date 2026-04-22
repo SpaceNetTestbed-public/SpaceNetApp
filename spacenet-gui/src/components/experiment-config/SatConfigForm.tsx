@@ -1,0 +1,269 @@
+'use client'
+
+import { SatConfig, ShellConfig } from '@/types/experiment-config'
+import { ShellEditor } from './ShellEditor'
+import { Plus } from 'lucide-react'
+import { Button } from '../ui/button'
+import { useState } from 'react'
+import {
+  SIM_TIME_STEP_DURATION_MIN,
+  SIM_TIME_STEP_DURATION_MAX,
+  SIM_TIME_STEP_COUNT_MIN,
+  SIM_TIME_STEP_COUNT_MAX,
+} from '@/lib/constants'
+
+interface SatConfigFormProps {
+  config: SatConfig
+  onChange: (config: SatConfig) => void
+  tleLocked?: boolean
+}
+
+export function SatConfigForm({ config, onChange, tleLocked = false }: SatConfigFormProps) {
+  const updateField = <K extends keyof SatConfig>(field: K, value: SatConfig[K]) => {
+    onChange({ ...config, [field]: value })
+  }
+
+  const updateSimLength = (field: keyof SatConfig['Sim_Length'], value: number) => {
+    onChange({
+      ...config,
+      Sim_Length: { ...config.Sim_Length, [field]: value },
+    })
+  }
+
+  const updateSimDateTime = (field: keyof SatConfig['Sim_Date_Time'], value: number) => {
+    onChange({
+      ...config,
+      Sim_Date_Time: { ...config.Sim_Date_Time, [field]: value },
+    })
+  }
+
+  // Normalize: API may return Record; type is ShellConfig[]
+  const shellsArray: ShellConfig[] = Array.isArray(config.shells)
+    ? config.shells
+    : Object.values(config.shells ?? {})
+
+  const updateShell = (index: number, shell: ShellConfig) => {
+    const newShells = shellsArray.slice()
+    newShells[index] = shell
+    onChange({ ...config, shells: newShells })
+  }
+
+  const addShell = () => {
+    const newShell: ShellConfig = {
+      name: `shell${shellsArray.length + 1}`,
+      orbits: 72,
+      sat_per_orbit: 22,
+      altitude: 550,
+      inclination: 53,
+      pattern: 'walker_delta',
+      ipp_increment: 1,
+      body: 'Earth',
+      perturber: 'Moon',
+    }
+    onChange({ ...config, shells: [...shellsArray, newShell] })
+  }
+
+  const removeShell = (index: number) => {
+    if (shellsArray.length <= 1) return
+    const newShells = shellsArray
+      .filter((_, i) => i !== index)
+      .map((shell, i) => ({ ...shell, name: `shell${i + 1}` }))
+    onChange({ ...config, shells: newShells })
+  }
+  
+  
+
+  const totalDuration = config.Sim_Length.TimeStepDuration * config.Sim_Length.TimeStepCount
+  const totalMinutes = Math.floor(totalDuration / 60)
+
+  // Date/time helpers
+  const currentDate = new Date(
+    config.Sim_Date_Time.StartYear,
+    config.Sim_Date_Time.StartMonth - 1,
+    config.Sim_Date_Time.StartDay
+  )
+  const dateString = currentDate.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  })
+
+  return (
+    <div className="space-y-6">
+      {/* Operator Name */}
+      <div className="rounded-card bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border p-6">
+        <h3 className="text-lg font-semibold text-light-text dark:text-dark-text mb-4">
+          Operator
+        </h3>
+        <div>
+          <label className="block text-sm font-medium text-light-text dark:text-dark-text mb-1.5">
+            Operator Name <span className="text-red-500">*</span>
+          </label>
+          <select
+            value={config.operator_name}
+            onChange={(e) => updateField('operator_name', e.target.value as SatConfig['operator_name'])}
+            className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
+          >
+            <option value="starlink">Starlink</option>
+            <option value="lunar">Lunar</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Simulation Timing */}
+      <div className="rounded-card bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border p-6">
+        <h3 className="text-lg font-semibold text-light-text dark:text-dark-text mb-4">
+          Simulation Timing
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-light-text dark:text-dark-text mb-1.5">
+              Time Step Duration (seconds) <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="number"
+              min={SIM_TIME_STEP_DURATION_MIN}
+              max={SIM_TIME_STEP_DURATION_MAX}
+              value={config.Sim_Length.TimeStepDuration}
+              onChange={(e) =>
+                updateSimLength('TimeStepDuration', parseInt(e.target.value) || SIM_TIME_STEP_DURATION_MIN)
+              }
+              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
+              aria-describedby="sim-duration-hint"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-light-text dark:text-dark-text mb-1.5">
+              Time Step Count <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="number"
+              min={SIM_TIME_STEP_COUNT_MIN}
+              max={SIM_TIME_STEP_COUNT_MAX}
+              value={config.Sim_Length.TimeStepCount}
+              onChange={(e) =>
+                updateSimLength('TimeStepCount', parseInt(e.target.value) || SIM_TIME_STEP_COUNT_MIN)
+              }
+              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
+              aria-describedby="sim-duration-hint"
+            />
+          </div>
+        </div>
+        <p id="sim-duration-hint" className="text-xs text-light-text/60 dark:text-dark-subtext mt-2">
+          Duration {SIM_TIME_STEP_DURATION_MIN}–{SIM_TIME_STEP_DURATION_MAX} s; count{' '}
+          {SIM_TIME_STEP_COUNT_MIN}–{SIM_TIME_STEP_COUNT_MAX.toLocaleString()}. Total: {totalMinutes} minutes
+        </p>
+      </div>
+
+      {/* Simulation Start Epoch */}
+      <div className="rounded-card bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border p-6">
+        <h3 className="text-lg font-semibold text-light-text dark:text-dark-text mb-4">
+          Simulation Start Epoch
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-light-text dark:text-dark-text mb-1.5">
+              Start Date
+            </label>
+            <input
+              type="date"
+              value={`${config.Sim_Date_Time.StartYear}-${String(config.Sim_Date_Time.StartMonth).padStart(2, '0')}-${String(config.Sim_Date_Time.StartDay).padStart(2, '0')}`}
+              onChange={(e) => {
+                const date = new Date(e.target.value)
+                if (!isNaN(date.getTime())) {
+                  updateSimDateTime('StartYear', date.getFullYear())
+                  updateSimDateTime('StartMonth', date.getMonth() + 1)
+                  updateSimDateTime('StartDay', date.getDate())
+                }
+              }}
+              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-light-text dark:text-dark-text mb-1.5">
+              Start Time
+            </label>
+            <div className="flex gap-2">
+              {/* Hours (0–23) */}
+              <input
+                type="number"
+                min="0"
+                max="23"
+                value={config.Sim_Date_Time.StartHour}
+                onChange={(e) =>
+                  updateSimDateTime('StartHour', Math.min(23, Math.max(0, parseInt(e.target.value) || 0)))
+                }
+                className="flex-1 px-3 py-2 rounded-btn border border-light-border dark:border-dark-border
+                          bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text
+                          focus:outline-none focus:ring-2 focus:ring-maroon/50"
+              />
+
+              {/* Minutes (0–59) */}
+              <input
+                type="number"
+                min="0"
+                max="59"
+                value={config.Sim_Date_Time.StartMinute}
+                onChange={(e) =>
+                  updateSimDateTime('StartMinute', Math.min(59, Math.max(0, parseInt(e.target.value) || 0)))
+                }
+                className="flex-1 px-3 py-2 rounded-btn border border-light-border dark:border-dark-border
+                          bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text
+                          focus:outline-none focus:ring-2 focus:ring-maroon/50"
+              />
+
+              {/* Seconds (0–59) */}
+              <input
+                type="number"
+                min="0"
+                max="59"
+                value={config.Sim_Date_Time.StartSecond}
+                onChange={(e) =>
+                  updateSimDateTime('StartSecond', Math.min(59, Math.max(0, parseInt(e.target.value) || 0)))
+                }
+                className="flex-1 px-3 py-2 rounded-btn border border-light-border dark:border-dark-border
+                          bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text
+                          focus:outline-none focus:ring-2 focus:ring-maroon/50"
+              />
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      {/* Shells */}
+      <div className="rounded-card bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border p-6">
+        <div className="mb-4">
+          <h3 className="text-lg font-semibold text-light-text dark:text-dark-text mb-2">
+            Shells
+          </h3>
+          <p className="text-sm text-light-text/60 dark:text-dark-subtext">
+            Shell parameters used to generate or interpret constellation TLEs.
+          </p>
+        </div>
+        <div className="space-y-4">
+          {shellsArray.map((shell, index) => (
+            <ShellEditor
+              key={index}
+              shell={shell}
+              index={index}
+              onChange={updateShell}
+              onRemove={removeShell}
+              canRemove={index != 0}
+            />
+          ))}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={addShell}
+            className="w-full border-dashed"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Shell
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+

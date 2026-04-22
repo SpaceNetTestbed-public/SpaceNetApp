@@ -1,0 +1,7 @@
+database.db
+__pycache__/
+/users/
+__init__.pyc
+error.tmp
+instance
+local_workspace/

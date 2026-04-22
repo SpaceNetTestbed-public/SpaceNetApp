@@ -1,0 +1,27 @@
+Debug: 0
+MonitorResource: false
+SourceNode: 1814
+DestNode: 1815
+RouteWeight: latency
+min_elevation_angle: 25
+AssociationCritGSL: BASED_ON_DISTANCE_ONLY_MININET
+UseWeatherData: false
+TopoCrit: 0
+Gateways:
+  t2t_gateway_kmz_type: local
+  t2t_gateway_kmz_path: dynamic-topology-generator/t2t/gateway_files/UnofficialStarlinkGlobalGatewaysNPoPs_noLinks.kmz
+  t2t_dict_output_file: dynamic-topology-generator/t2t/gateway_files/t2t_dict.json
+Azure:
+  t2t_use_azure: true
+  t2t_azure_endpoint_location_file: dynamic-topology-generator/t2t/azure/AzureDataCenterLocations.csv
+  t2t_azure_endpoint_latency_url: https://learn.microsoft.com/en-us/azure/networking/azure-network-latency
+  t2t_azure_dict_output_file: dynamic-topology-generator/t2t/azure/t2t_azure_dict.json
+WonderProxy:
+  t2t_use_wonderproxy: true
+  t2t_wonderproxy_endpoint_location_file: dynamic-topology-generator/t2t/wonderproxy/wonderproxy_servers-2020-07-19.csv
+  t2t_wonderproxy_endpoint_latency_file: dynamic-topology-generator/t2t/wonderproxy/wonderproxy_pings-2020-07-19-2020-07-20.csv
+  t2t_wonderproxy_dict_output_file: dynamic-topology-generator/t2t/wonderproxy/t2t_wonderproxy_dict.json
+gs_file_id: -1
+ConstellationName: sat_config
+GroundStationFile: dynamic-topology-generator/utils/gs_files/gs_default.txt
+OutputFilePath: random_test/output/
