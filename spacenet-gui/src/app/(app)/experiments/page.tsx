@@ -3,43 +3,152 @@
 import { useState, useMemo, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Plus, Search, Upload, Download, BarChart3, BookOpen, ChevronDown } from 'lucide-react'
+import { Plus, Search, Upload, Download, BarChart3, BookOpen, ChevronDown, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ExperimentGroup } from '@/components/ExperimentGroup'
 import { motion } from 'framer-motion'
-import { Experiment, CreateExperimentBody, CreateExperimentResponse } from '@/types/types'
+import { Experiment, CreateExperimentBody, CreateExperimentResponse, GroundStationFileSummary } from '@/types/types'
 import { apiFetch } from '@/lib/api'
 import { getApiErrorMessage } from '@/lib/utils'
 import { toast } from 'sonner'
+import yaml from "js-yaml"
 
 export default function ExperimentsPage() {
   const router = useRouter()
   // Backend data
   const [experiments, setExperiments] = useState<Experiment[]>([]);
   const [loading, setLoading] = useState(true);
+  
   // Modal state
   const [showModal, setShowModal] = useState(false);
+  const [editExperiment, setEditExperiment] = useState<Experiment | null>(null);
+  const [duplicateId, setDuplicateId] = useState<string | null>(null);
 
   // Form fields
   const [newName, setNewName] = useState("");
   const [newDescription, setNewDescription] = useState("");
   const [newTag, setNewTag] = useState("");
+  const [tags, setTags] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
-  const [duplicateId, setDuplicateId] = useState<string | null>(null);
+  const [gsFile, setGSFile] = useState(-1);
 
-  const [tags, setTags] = useState<string[]>([]);  // <-- explicitly typed
+  const [isCustom, setIsCustom] = useState(false);
+  const [gsFiles, setGsFiles] = useState<GroundStationFileSummary[]>([]);
+  const [yamlFile, setYamlFile] = useState<File | null>(null);
+  const [yamlFile1, setYamlFile1] = useState<File | null>(null);
+  const [yamlFile2, setYamlFile2] = useState<File | null>(null);
+  const [deleteMN, setDeleteMN] = useState<boolean | null>(false);
+
+  useEffect(() => {
+      const fetchGSFiles = async () => {
+        try {
+          const data = await apiFetch("/ground_station_file") as GroundStationFileSummary[];
+          setGsFiles(data);
+        } catch (err) {
+          console.error("Failed to load GS files:", err)
+          toast.error(getApiErrorMessage(err, 'Failed to load ground station files'), { id: 'main-config-gs-files' })
+        }
+      };
+      fetchGSFiles();
+    }, []); // only fetch files once
+
+  // Existing Configs State
+  const [existingConfigs, setExistingConfigs] = useState<{
+    main: any;
+    sat: any;
+    mininet: any;
+  }>({
+    main: null,
+    sat: null,
+    mininet: null,
+  });
+
+  const resetForm = () => {
+    setNewName('');
+    setNewDescription('');
+    setTags([]);
+    setNewTag('');
+    setIsCustom(false);
+    setYamlFile(null);
+    setYamlFile1(null);
+    setYamlFile2(null);
+    setExistingConfigs({ main: null, sat: null, mininet: null });
+    setDuplicateId(null);
+    setEditExperiment(null);
+  };
+
+  const openCreateModal = () => {
+    resetForm();
+    setShowModal(true);
+  };
+
+  const fetchConfigs = async (id: string) => {
+    try {
+      // Use Promise.allSettled in case some configs don't exist yet
+      const [main, sat, mininet] = await Promise.allSettled([
+        apiFetch(`/experiments/${id}/main`),
+        apiFetch(`/experiments/${id}/sat`),
+        apiFetch(`/experiments/${id}/main-mn`),
+      ]);
+
+      setExistingConfigs({
+        main: main.status === 'fulfilled' ? main.value : null,
+        sat: sat.status === 'fulfilled' ? sat.value : null,
+        mininet: mininet.status === 'fulfilled' ? mininet.value : null,
+      });
+    } catch (err) {
+      console.error("Error fetching configs:", err);
+    }
+  };
+
+  const openEditModal = async (exp: Experiment) => {
+    resetForm();
+    setEditExperiment(exp);
+
+    // preload form
+    setNewName(exp.name);
+    setNewDescription(exp.description || '');
+    setTags(exp.tags || []);
+    setIsCustom(exp.is_custom || false);
+
+    if (exp.is_custom) {
+      await fetchConfigs(exp.id);
+    }
+
+    setShowModal(true);
+  };
+
+  const duplicateExperiment = (id: string) => {
+    resetForm();
+    setDuplicateId(id);
+    setShowModal(true);
+  };
+
+  const deleteConfig = async (type: 'main' | 'sat' | 'mininet') => {
+    if (!editExperiment) return;
+    try {
+      if (type == 'mininet') {
+        setDeleteMN(true)
+      }
+
+      setExistingConfigs((prev) => ({ ...prev, [type]: null }));
+      toast.success(`${type.toUpperCase()} config deleted successfully.`);
+    } catch (err) {
+      toast.error(`Failed to delete ${type} config.`);
+    }
+  };
 
   const addTag = () => {
     const trimmed = newTag.trim();
     if (trimmed && !tags.includes(trimmed)) {
-      setTags([...tags, trimmed]); // now TypeScript is happy
+      setTags([...tags, trimmed]);
     }
     setNewTag("");
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
-      e.preventDefault(); // prevent form submission
+      e.preventDefault();
       addTag();
     }
   };
@@ -52,64 +161,56 @@ export default function ExperimentsPage() {
     setExperiments((prev) => prev.filter((e) => e.id !== id));
   };
 
-  const duplicateExperiment = (id: string) => {
-    setDuplicateId(id);
-    setShowModal(true);
+  const fetchExperiments = async () => {
+    setLoading(true);
+    try {
+      const data = await apiFetch('/experiments') as Experiment[];
+      setExperiments(data);
+    } catch (err) {
+      console.error(err);
+      toast.error(getApiErrorMessage(err, 'Failed to load experiments'), { id: 'experiments-load' });
+      setExperiments([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
-    const fetchExperiments = async () => {
-      setLoading(true);
-      try {
-        const data = await apiFetch('/experiments') as Experiment[];
-        setExperiments(data);
-      } catch (err) {
-        console.error(err);
-        toast.error(getApiErrorMessage(err, 'Failed to load experiments'), { id: 'experiments-load' });
-        setExperiments([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchExperiments();
   }, []);
 
   // UI state
   const [searchQuery, setSearchQuery] = useState('');
   const [filterGroup, setFilterGroup] = useState('All');
-  const [sortBy, setSortBy] =
-    useState<'Last Updated' | 'Name' | 'Status'>('Last Updated');
+  const [sortBy, setSortBy] = useState<'Last Updated' | 'Name' | 'Status'>('Last Updated');
 
   // Build groups from backend tags
   const experimentGroups = useMemo(() => {
-  const groupsMap: Record<string, Experiment[]> = {};
+    const groupsMap: Record<string, Experiment[]> = {};
 
-  experiments.forEach(exp => {
-    const expTags = exp.tags?.length ? exp.tags : ['Untagged'];
+    experiments.forEach(exp => {
+      const expTags = exp.tags?.length ? exp.tags : ['Untagged'];
 
-    expTags.forEach(tag => {
-      if (!groupsMap[tag]) groupsMap[tag] = [];
-      groupsMap[tag].push(exp);
+      expTags.forEach(tag => {
+        if (!groupsMap[tag]) groupsMap[tag] = [];
+        groupsMap[tag].push(exp);
+      });
     });
-  });
 
-  // Sort experiments inside each group
-  Object.values(groupsMap).forEach(group => {
-    group.sort(
-      (a, b) =>
-        new Date(b.created_at ?? 0).getTime() -
-        new Date(a.created_at ?? 0).getTime()
-    );
-  });
+    Object.values(groupsMap).forEach(group => {
+      group.sort(
+        (a, b) =>
+          new Date(b.created_at ?? 0).getTime() -
+          new Date(a.created_at ?? 0).getTime()
+      );
+    });
 
-  return Object.entries(groupsMap).map(([tag, exps]) => ({
-    name: tag,
-    experiments: exps,
-  }));
-}, [experiments]);
+    return Object.entries(groupsMap).map(([tag, exps]) => ({
+      name: tag,
+      experiments: exps,
+    }));
+  }, [experiments]);
 
-  // Build filter dropdown (from backend tags)
   const allGroups = useMemo(() => {
     const groups = new Set<string>();
 
@@ -122,9 +223,8 @@ export default function ExperimentsPage() {
     });
 
     return ['All', ...Array.from(groups)];
-}, [experiments]);
+  }, [experiments]);
 
-  // Apply search + tag filtering
   const filteredGroups = useMemo(() => {
     return experimentGroups
       .filter(group => filterGroup === 'All' || group.name === filterGroup)
@@ -160,7 +260,7 @@ export default function ExperimentsPage() {
         <div className="sm:mr-auto">
           <Button
             className="bg-maroon hover:bg-maroon-hover text-white"
-            onClick={() => setShowModal(true)}
+            onClick={openCreateModal}
           >
             <Plus className="h-4 w-4 mr-2" />
             New Experiment
@@ -215,7 +315,14 @@ export default function ExperimentsPage() {
       <div className="space-y-6">
         {filteredGroups.length > 0 ? (
           filteredGroups.map((group, idx) => (
-            <ExperimentGroup key={group.name} group={group} groupIndex={idx} onDelete={removeExperiment} onDuplicate={duplicateExperiment} />
+            <ExperimentGroup 
+              key={group.name} 
+              group={group} 
+              groupIndex={idx} 
+              onDelete={removeExperiment} 
+              onDuplicate={duplicateExperiment}
+              onEdit={openEditModal} // Passed edit handler here
+            />
           ))
         ) : (
           <div className="text-center py-12 text-light-text/60 dark:text-dark-subtext">
@@ -224,30 +331,23 @@ export default function ExperimentsPage() {
         )}
       </div>
 
-      {/* New Experiment Modal */}
+      {/* Modal */}
       {showModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 
-                    bg-black/50 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto"
           onClick={() => setShowModal(false)}
         >
           <motion.div
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.1, ease: 'easeOut' }}
-            onClick={(e) => e.stopPropagation()} // prevent closing when clicking inside
-            className="
-              w-full max-w-md rounded-card shadow-xl p-6
-              bg-light-surface dark:bg-dark-surface
-              border border-light-border dark:border-dark-border
-            "
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-lg max-h-[50vh] overflow-y-auto rounded-card shadow-xl p-6 bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border my-8"
           >
-            {/* Title */}
             <h2 className="text-2xl font-semibold mb-4 text-light-text dark:text-dark-text">
-              Create New Experiment
+              {editExperiment ? "Edit Experiment" : (duplicateId ? "Duplicate Experiment" : "Create New Experiment")}
             </h2>
 
-            {/* Fields */}
             <div className="space-y-4">
               
               {/* Name */}
@@ -259,13 +359,7 @@ export default function ExperimentsPage() {
                   type="text"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
-                  className="
-                    w-full px-3 py-2 rounded-btn font-mono text-sm
-                    border border-light-border dark:border-dark-border
-                    bg-light-bg dark:bg-dark-bg
-                    text-light-text dark:text-dark-text
-                    focus:outline-none focus:ring-2 focus:ring-maroon/50
-                  "
+                  className="w-full px-3 py-2 rounded-btn font-mono text-sm border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
                 />
               </div>
 
@@ -278,13 +372,7 @@ export default function ExperimentsPage() {
                   rows={3}
                   value={newDescription}
                   onChange={(e) => setNewDescription(e.target.value)}
-                  className="
-                    w-full px-3 py-2 rounded-btn font-mono text-sm resize-none
-                    border border-light-border dark:border-dark-border
-                    bg-light-bg dark:bg-dark-bg
-                    text-light-text dark:text-dark-text
-                    focus:outline-none focus:ring-2 focus:ring-maroon/50
-                  "
+                  className="w-full px-3 py-2 rounded-btn font-mono text-sm resize-none border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
                 />
               </div>
 
@@ -293,7 +381,6 @@ export default function ExperimentsPage() {
                 <label className="block text-sm font-medium mb-1 text-light-text dark:text-dark-text">
                   Tag
                 </label>
-
                 <div className="flex flex-wrap gap-2 mb-2">
                   {tags.map((tag) => (
                     <span
@@ -305,78 +392,209 @@ export default function ExperimentsPage() {
                     </span>
                   ))}
                 </div>
-
                 <input
                   type="text"
                   value={newTag}
                   onChange={(e) => setNewTag(e.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder="Type a tag and press Enter"
-                  className="
-                    w-full px-3 py-2 rounded-btn font-mono text-sm
-                    border border-light-border dark:border-dark-border
-                    bg-light-bg dark:bg-dark-bg
-                    text-light-text dark:text-dark-text
-                    focus:outline-none focus:ring-2 focus:ring-maroon/50
-                  "
+                  className="w-full px-3 py-2 rounded-btn font-mono text-sm border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
                 />
               </div>
+
+              {/* Custom Experiment Toggle */}
+              <div className="flex items-center gap-2 pt-2">
+                <input
+                  type="checkbox"
+                  checked={isCustom}
+                  disabled={editExperiment !== null} // Prevents changing type during edit
+                  onChange={(e) => setIsCustom(e.target.checked)}
+                  className="h-4 w-4"
+                />
+                <label className="text-sm text-light-text dark:text-dark-text">
+                  Custom Experiment (upload YAML)
+                </label>
+              </div>
+
+              {/* Config Files Section (only if custom is checked) */}
+              {isCustom && (
+                <div className="space-y-4 pt-2 border-t border-light-border dark:border-dark-border">
+                  <p className="text-sm text-light-text/80 dark:text-dark-subtext mb-3 line-clamp-2">
+                    For custom configurations, please export non-custom YAML first to understand defaults and other settings.
+                  </p>
+                  <p className="text-sm text-light-text/80 dark:text-dark-subtext mb-3 line-clamp-2">
+                    The output path would automatically be added. Other paths are relative to the spacenet-backend folder.
+                  </p>
+                  {/* To be added later */}
+                  {/* <div>
+                    <label className="block text-sm font-medium text-light-text dark:text-dark-text mb-1.5">
+                      Ground Station File
+                    </label>
+
+                    <select
+                      value={gsFile}
+                      onChange={(e) => {setGSFile(parseInt(e.target.value) || -1);}}
+                      className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50 text-sm"
+                    >
+                      <option value={-1}>default</option>
+                      {gsFiles.map((file) => (
+                        <option key={file.id} value={file.id}>
+                          {file.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div> */}
+                  {/* MAIN CONFIG */}
+                  <div>
+                    <label className="flex items-center justify-between text-sm font-medium mb-1 text-light-text dark:text-dark-text">
+                      <span>Main Config YAML</span>
+                    </label>
+                    {editExperiment && existingConfigs.main && (
+                      <div className="mb-2 p-2 bg-light-bg dark:bg-dark-bg rounded border border-light-border dark:border-dark-border text-xs font-mono max-h-40 overflow-auto text-light-text dark:text-dark-text">
+                        <pre>{JSON.stringify(existingConfigs.main, null, 2)}</pre>
+                      </div>
+                    )}
+                    <input
+                      type="file"
+                      accept=".yaml,.yml"
+                      onChange={(e) => {deleteConfig('main'); setYamlFile(e.target.files?.[0] || null)}}
+                      className="w-full px-3 py-2 rounded-btn text-sm border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text"
+                    />
+                    {editExperiment && <p className="text-xs mt-1 text-gray-500">Uploading a new file will replace the existing configuration.</p>}
+                  </div>
+
+                  {/* SAT CONFIG */}
+                  <div>
+                    <label className="flex items-center justify-between text-sm font-medium mb-1 text-light-text dark:text-dark-text">
+                      <span>SAT Config YAML</span>
+                    </label>
+                    {editExperiment && existingConfigs.sat && (
+                      <div className="mb-2 p-2 bg-light-bg dark:bg-dark-bg rounded border border-light-border dark:border-dark-border text-xs font-mono max-h-40 overflow-auto text-light-text dark:text-dark-text">
+                        <pre>{JSON.stringify(existingConfigs.sat, null, 2)}</pre>
+                      </div>
+                    )}
+                    <input
+                      type="file"
+                      accept=".yaml,.yml"
+                      onChange={(e) => {deleteConfig('sat');setYamlFile1(e.target.files?.[0] || null); }}
+                      className="w-full px-3 py-2 rounded-btn text-sm border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text"
+                    />
+                  </div>
+
+                  {/* MININET CONFIG */}
+                  <div>
+                    <label className="flex items-center justify-between text-sm font-medium mb-1 text-light-text dark:text-dark-text">
+                      <span>Mininet Config YAML</span>
+                      {editExperiment && existingConfigs.mininet && (
+                         <Button variant="ghost" size="sm" onClick={() => deleteConfig('mininet')} className="h-6 px-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-950">
+                           <Trash2 className="h-3 w-3 mr-1" /> Delete
+                         </Button>
+                      )}
+                    </label>
+                    {editExperiment && existingConfigs.mininet && (
+                      <div className="mb-2 p-2 bg-light-bg dark:bg-dark-bg rounded border border-light-border dark:border-dark-border text-xs font-mono max-h-40 overflow-auto text-light-text dark:text-dark-text">
+                        <pre>{JSON.stringify(existingConfigs.mininet, null, 2)}</pre>
+                      </div>
+                    )}
+                    <input
+                      type="file"
+                      accept=".yaml,.yml"
+                      onChange={(e) => {deleteConfig('mininet'); setYamlFile2(e.target.files?.[0] || null); setDeleteMN(false)}}
+                      className="w-full px-3 py-2 rounded-btn text-sm border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text"
+                    />
+                  </div>
+
+                </div>
+              )}
             </div>
 
             {/* Buttons */}
             <div className="flex justify-end gap-2 mt-6">
-          <Button
-            variant="outline"
-            onClick={() => setShowModal(false)}
-            className="
-                  border-light-border dark:border-dark-border
-                  text-light-text dark:text-dark-text
-                "
-          >
+              <Button
+                variant="outline"
+                onClick={() => setShowModal(false)}
+                className="border-light-border dark:border-dark-border text-light-text dark:text-dark-text"
+              >
                 Cancel
               </Button>
 
-          <Button
+              <Button
                 className="bg-maroon hover:bg-maroon-hover text-white"
                 disabled={creating || !newName.trim()}
                 onClick={async () => {
                   setCreating(true);
                   try {
-                    const body: CreateExperimentBody = { name: newName.trim() };
+                    const body: CreateExperimentBody = { name: newName.trim(), is_custom: isCustom };
                     if (newDescription.trim()) body.description = newDescription.trim();
-                    // if (newTag.trim()) body.tag = newTag.trim();
                     if (tags) body.tags = tags;
 
-                    let expId = ''
-                    if (duplicateId === null) {
-                      const newExp = await apiFetch('/experiments', {
-                        method: 'POST',
+                    if (deleteMN) {
+                      body.main_mn_config = {};
+                    }
+
+                    // Handle YAML file overrides
+                    if (isCustom && yamlFile) {
+                      const text = await yamlFile.text();
+                      const con = yaml.load(text) as Record<string, any>;
+                      body.main_config = con;
+                    }
+                    if (isCustom && yamlFile1) {
+                      const text1 = await yamlFile1.text();
+                      const con = yaml.load(text1) as Record<string, any>;
+                      body.sat_config = con;
+                    }
+                    if (isCustom && yamlFile2) {
+                      const text2 = await yamlFile2.text();
+                      const con = yaml.load(text2) as Record<string, any>;
+                      body.main_mn_config = con;
+                    }
+
+                    let expId = '';
+                    
+                    if (editExperiment) {
+                      await apiFetch(`/experiments/${editExperiment.id}`, {
+                        method: 'PUT',
                         body: JSON.stringify(body),
-                      }) as CreateExperimentResponse;
-                      expId = newExp.experiment_id
-                    } else {
+                      });
+                      expId = editExperiment.id;
+                      toast.success('Experiment updated successfully');
+                    } else if (duplicateId !== null) {
                       const newExp = await apiFetch(`/experiments/${duplicateId}/duplicate`, {
                         method: 'POST',
                         body: JSON.stringify(body),
                       }) as CreateExperimentResponse;
-                      expId = newExp.experiment_id
+                      expId = newExp.experiment_id;
+                      toast.success('Experiment duplicated');
+                    } else {
+                      const newExp = await apiFetch('/experiments', {
+                        method: 'POST',
+                        body: JSON.stringify(body),
+                      }) as CreateExperimentResponse;
+                      expId = newExp.experiment_id;
+                      toast.success('Experiment created');
                     }
-                    setDuplicateId(null)
+
+                    const wasCustom = isCustom; // capture before reset
+                    const wasEdit = !!editExperiment;
+                    
+                    resetForm();
                     setShowModal(false);
-                    setNewName('');
-                    setTags([])
-                    setNewDescription('');
-                    setNewTag('');
-                    router.push(`/experiments/${expId}/edit`)
+                    
+                    // Route or refresh logic
+                    if (!wasEdit && !wasCustom)  {
+                      router.push(`/experiments/${expId}/edit`);
+                    } else {
+                      await fetchExperiments();
+                    }
                   } catch (err) {
                     console.error(err);
-                    toast.error(getApiErrorMessage(err, 'Failed to create experiment'), { id: 'experiment-create' });
+                    toast.error(getApiErrorMessage(err, 'Failed to save experiment'), { id: 'experiment-save' });
                   } finally {
                     setCreating(false);
                   }
                 }}
               >
-                {creating ? "Creating..." : "Create"}
+                {creating ? (editExperiment ? "Saving..." : "Creating...") : (editExperiment ? "Save" : "Create")}
               </Button>
             </div>
           </motion.div>

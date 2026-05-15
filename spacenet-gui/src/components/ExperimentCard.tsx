@@ -18,9 +18,10 @@ interface ExperimentCardProps {
   index: number
   onDelete: (id: string) => void
   onDuplicate: (id: string) => void
+  onEdit: (exp: Experiment) => void
 }
 
-export function ExperimentCard({ experiment, index, onDelete , onDuplicate}: ExperimentCardProps) {
+export function ExperimentCard({ experiment, index, onDelete , onDuplicate, onEdit}: ExperimentCardProps) {
   const router = useRouter()
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -119,8 +120,8 @@ export function ExperimentCard({ experiment, index, onDelete , onDuplicate}: Exp
               {formatDate(experiment.created_at)}
             </span>
           )}
-          <Link href={`/experiments/${experiment.id}/edit`} className={experiment.created_at ? '' : 'flex-1'}>
-            <Button variant="outline" className={experiment.created_at ? '' : 'w-full'}>
+          <Link href={`/experiments/${experiment.id}/edit`} className={experiment.created_at ? '' : 'flex-1'}  onClick={(e) => { if (experiment.is_custom){e.preventDefault()}  }}>
+            <Button variant="outline" className={experiment.created_at ? '' : 'w-full'}  disabled={experiment.is_custom}>
               <Edit className="h-4 w-4 mr-2" />
               Edit Config
             </Button>
@@ -146,6 +147,13 @@ export function ExperimentCard({ experiment, index, onDelete , onDuplicate}: Exp
               align="start"
               sideOffset={0}
             >
+              <DropdownMenu.Item
+                className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer rounded-md"
+                onClick={() => onEdit(experiment)}
+              >
+                <Edit className="h-4 w-4" />
+                Edit
+              </DropdownMenu.Item>
               <DropdownMenu.Item
                 className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer rounded-md"
                 onClick={() => handleDuplicateExperiment()}

@@ -1,7 +1,7 @@
 Debug: 0
 MonitorResource: false
-SourceNode: 1814
-DestNode: 1815
+SourceNode: 0
+DestNode: 1
 RouteWeight: latency
 min_elevation_angle: 25
 AssociationCritGSL: BASED_ON_DISTANCE_ONLY_MININET

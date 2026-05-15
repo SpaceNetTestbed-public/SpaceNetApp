@@ -8,7 +8,7 @@ import { MainConfigForm } from '@/components/experiment-config/MainConfigForm'
 import { ExperimentConfig, SatConfig, MainConfig } from '@/types/experiment-config'
 import { Experiment } from '@/types/types'
 import { toast } from 'sonner'
-import { apiFetch } from '@/lib/api'
+import { API_URL, apiFetch } from '@/lib/api'
 import { getApiErrorMessage } from '@/lib/utils'
 import { generateMainYAML, generateSatYAML } from '@/lib/yaml'
 import { ExperimentEditHeader } from '@/components/experiment/ExperimentEditHeader'
@@ -117,21 +117,15 @@ export default function EditExperimentPage() {
     toast.info('YAML import coming soon')
   }
 
-  const handleExportYAML = () => {
+  const handleExportYAML = async () => {
     if (!config) return
-    const satYAML = generateSatYAML(config.satConfig, {
-      includeOperatorName: true,
-      shells: config.satConfig.shells,
-      defaultPerturber: true,
-    })
-    const mainYAML = generateMainYAML(config.mainConfig)
-    const blob = new Blob([`# SAT Config\n${satYAML}\n\n# Main Config\n${mainYAML}`], {
-      type: 'text/yaml',
-    })
-    const url = URL.createObjectURL(blob)
+    const res = await fetch(`${API_URL}/experiments/${id}/download-config`)
+    if (!res.ok) throw new Error('Download failed')
+    const blob = await res.blob()
+    const url = window.URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `${config.experimentName || 'experiment'}.yaml`
+    a.download = `${config.experimentName || 'experiment'}_config.zip`
     a.click()
     URL.revokeObjectURL(url)
     toast.success('YAML exported')

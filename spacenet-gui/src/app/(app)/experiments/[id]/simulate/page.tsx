@@ -32,6 +32,7 @@ export default function SimulationPage() {
   /* ----------------------------- Status States ----------------------------- */
   const [hasPhase1, setHasPhase1] = useState(false)
   const [hasPhase2, setHasPhase2] = useState(false)
+  const [hasMN, setHasMN] = useState(true)
 
   /* ----------------------------- Output ----------------------------- */
   const [hasOutput, setHasOutput] = useState(false)
@@ -142,6 +143,22 @@ export default function SimulationPage() {
     }
     fetchSatConfig()
     checkStatus()
+  }, [id])
+
+  useEffect(() => {
+    const checkMainMN = async () => {
+      try {
+        const res = await fetch(`${API_URL}/experiments/${id}/main-mn`)
+        if (!res.ok) {
+          setHasMN(false)
+        }
+        console.log("HERE")
+      } catch (err) {
+        console.error('Failed to fetch main mn config', err)
+        toast.error(getApiErrorMessage(err, 'Failed to load Main MN config'), { id: 'experiment-main-mn-config-load' })
+      }
+    }
+    checkMainMN()
   }, [id])
 
   useEffect(() => {
@@ -408,6 +425,7 @@ export default function SimulationPage() {
           onLogs={() => openLogs(1)}
           onViewGif={() => setShowGif(true)}
           showGifButton={!loadingGif && !!gifUrl}
+          hasMN={hasMN}
           onCreateAniGif={handleCreateAniGif}
         />
         <PhaseCard
@@ -419,6 +437,7 @@ export default function SimulationPage() {
           onRun={() => runPhase(2)}
           onDownload={() => downloadPhaseOutput(2)}
           onLogs={() => openLogs(2)}
+          hasMN={hasMN}
         />
       </div>
       {/* ==================== Visualization + Controls ==================== */}

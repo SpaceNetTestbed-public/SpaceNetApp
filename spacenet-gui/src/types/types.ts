@@ -1,6 +1,7 @@
 export interface Experiment {
   id: string
   name: string
+  is_custom: boolean
   description?: string
   tags: string[]
   created_at?: string
@@ -16,8 +17,12 @@ export interface ExperimentGroup {
 /** Request body for creating or duplicating an experiment */
 export interface CreateExperimentBody {
   name: string
+  is_custom: boolean
   description?: string
   tags?: string[]
+  main_config?: Object
+  sat_config?: Object
+  main_mn_config?: Object
 }
 
 /** API response when creating or duplicating an experiment */

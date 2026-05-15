@@ -13,8 +13,8 @@ DynamicLinkQueueSize: True # Allow custom netem packet queue sizes for links bas
 AppName: Ping # Options- Ping, iPerf, CLI
 # For Ping and iPerf
 # Useable keywords- firstGS, lastGS, firstSat, lastSat
-SourceDeviceName: 1814      #1839
-DestDeviceName:  1815       #1830
+SourceDeviceName: 0      #1839
+DestDeviceName:  1       #1830
 PauseAtIntervalChange: True # Will pause app while network links and routes are updated, then resume
 # For CLI
 CLIStartInterval: 0

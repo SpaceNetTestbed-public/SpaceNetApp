@@ -14,6 +14,7 @@ interface PhaseCardProps {
   onLogs: () => void
   onViewGif?: () => void
   showGifButton?: boolean
+  hasMN: boolean
   onCreateAniGif?: () => void
 }
 
@@ -28,6 +29,7 @@ export function PhaseCard({
   onLogs,
   onViewGif,
   showGifButton = false,
+  hasMN = true,
   onCreateAniGif
 }: PhaseCardProps) {
   return (
@@ -52,7 +54,7 @@ export function PhaseCard({
           : 'Optimization and output generation.'}
       </p>
       <div className="flex gap-2">
-        <Button className="flex-1" onClick={onRun} disabled={isSubmitting || !canRun}>
+        <Button className="flex-1" onClick={onRun} disabled={isSubmitting || !canRun || (!hasMN && phase === 2)}>
           <Play className="h-4 w-4 mr-2" />Run Phase {phase}
         </Button>
         {hasOutput && !showGifButton && phase === 1 &&  (
@@ -76,6 +78,11 @@ export function PhaseCard({
       {phase === 2 && !canRun && (
         <p className="text-[11px] text-amber-600 flex items-center gap-1 font-medium">
           <AlertTriangle className="h-3.5 w-3.5" /> Requires Phase 1 output to run
+        </p>
+      )}
+      {phase === 2 && !hasMN && (
+        <p className="text-[11px] text-amber-600 flex items-center gap-1 font-medium">
+          <AlertTriangle className="h-3.5 w-3.5" /> Requires main-mn to be configured
         </p>
       )}
     </div>

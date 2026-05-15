@@ -2,6 +2,8 @@ import os
 from app.configurations.create_config import create_default_configs, readd_file_paths
 import shutil
 
+GROUND_STATION_FILE =  "dynamic-topology-generator/utils/gs_files/gs_default.txt"
+
 def ensure_experiment_folder_and_defaults(experiment_id: int):
     os.makedirs("local_workspace/" + str(experiment_id), exist_ok=True)
     create_default_configs(experiment_id)
@@ -61,3 +63,45 @@ def duplicate_experiment_folder(old_id, new_id):
         shutil.copy(src, dst)
 
     readd_file_paths(new_id)
+
+def add_main_default(main_config, experiment_id):
+    main_config['OutputFilePath'] = f"local_workspace/{experiment_id}/output/"
+    main_config['ConstellationName'] = "sat_config"
+    return main_config
+
+def add_main_mn_default(main_mn_config, experiment_id):
+    main_mn_config['Phase1FilePath'] = f"local_workspace/{experiment_id}/output/"
+    main_mn_config['ResultsFilePath'] = f"local_workspace/{experiment_id}/output_mn/"
+    main_mn_config['ConstellationName'] = "sat_mn_config"
+    return main_mn_config
+
+def add_sat_config_default(sat_config):
+    sat_config['TLEFilePath'] = 'dynamic-topology-generator/utils/'
+    return sat_config
+
+def create_sat_mn_config(sat_config):
+    total_sats = 0
+    # count amount of satelites
+    for shell_name, shell in sat_config["shells"].items():
+        shell_total = shell["orbits"] * shell["sat_per_orbit"]
+        total_sats += shell_total
+
+    ground_station_count = 0
+    with open(GROUND_STATION_FILE, "r") as f:
+        for line in f:
+            ground_station_count += 1
+    
+    sat_mn_config = {}
+    sat_mn_config['TotalSatCnt'] = total_sats
+    sat_mn_config['TotalGSCnt'] = ground_station_count
+    sat_mn_config["SimLength"] = {}
+    sat_mn_config["SimLength"]["TimeStepDuration"] = sat_config["Sim_Length"]["TimeStepDuration"]
+    sat_mn_config["SimLength"]["TimeStepCount"] = sat_config["Sim_Length"]["TimeStepCount"]
+    sat_mn_config["Sim_Date_Time"] = {}
+    sat_mn_config["Sim_Date_Time"]["StartYear"] = sat_config["Sim_Date_Time"]["StartYear"]
+    sat_mn_config["Sim_Date_Time"]["StartMonth"] = sat_config["Sim_Date_Time"]["StartMonth"]
+    sat_mn_config["Sim_Date_Time"]["StartDay"] = sat_config["Sim_Date_Time"]["StartDay"]
+    sat_mn_config["Sim_Date_Time"]["StartHour"] = sat_config["Sim_Date_Time"]["StartHour"]
+    sat_mn_config["Sim_Date_Time"]["StartMinute"] = sat_config["Sim_Date_Time"]["StartMinute"]
+    sat_mn_config["Sim_Date_Time"]["StartSecond"] = sat_config["Sim_Date_Time"]["StartSecond"]
+    return sat_mn_config

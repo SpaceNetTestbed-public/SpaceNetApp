@@ -13,6 +13,8 @@ class Experiment(db.Model):
 
     description = db.Column(db.Text, nullable=True)
 
+    is_custom = db.Column(db.Boolean, nullable=False, default=False)
+
     created_at = db.Column(
         db.DateTime,
         nullable=False,

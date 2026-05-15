@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
-import { ExperimentGroup as ExperimentGroupType } from '@/types/types'
+import { Experiment, ExperimentGroup as ExperimentGroupType } from '@/types/types'
 import { ExperimentCard } from './ExperimentCard'
 
 interface ExperimentGroupProps {
@@ -10,9 +10,10 @@ interface ExperimentGroupProps {
   groupIndex: number
   onDelete: (id: string) => void
   onDuplicate: (id: string) => void
+  onEdit: (exp: Experiment) => void
 }
 
-export function ExperimentGroup({ group, groupIndex, onDelete, onDuplicate }: ExperimentGroupProps) {
+export function ExperimentGroup({ group, groupIndex, onDelete, onDuplicate, onEdit }: ExperimentGroupProps) {
   const [isExpanded, setIsExpanded] = useState(true)
 
   return (
@@ -36,7 +37,7 @@ export function ExperimentGroup({ group, groupIndex, onDelete, onDuplicate }: Ex
       {isExpanded && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {group.experiments.map((experiment, idx) => (
-            <ExperimentCard key={experiment.id} experiment={experiment} index={groupIndex * 10 + idx} onDelete={onDelete} onDuplicate={onDuplicate} />
+            <ExperimentCard key={experiment.id} experiment={experiment} index={groupIndex * 10 + idx} onDelete={onDelete} onDuplicate={onDuplicate} onEdit={onEdit} />
           ))}
         </div>
       )}

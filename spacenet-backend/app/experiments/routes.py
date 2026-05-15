@@ -1,12 +1,18 @@
 import os
 from flask import Blueprint, jsonify, request, abort, send_file, current_app
 from app.db import get_db
-from app.experiments.services import ensure_experiment_folder_and_defaults, delete_experiment_folder, duplicate_experiment_folder
+from app.experiments.services import ensure_experiment_folder_and_defaults, delete_experiment_folder, duplicate_experiment_folder, create_sat_mn_config, add_main_default, add_main_mn_default, add_sat_config_default
 from app.extensions import rq, redis_client
 from rq.worker import Worker
 from app.extensions import db
 from app.models.experiment import Experiment
 from sqlalchemy.exc import IntegrityError
+import yaml
+
+SAT_FILE = 'sat_config.yaml'
+SAT_MN_FILE = 'sat_mn_config.yaml'
+MAIN_FILE = 'main_config.yaml'
+MAIN_MN_FILE = 'main_mn_config.yaml'
 
 bp = Blueprint("experiments", __name__, url_prefix="")
 
@@ -30,6 +36,7 @@ def get_experiments():
       exp = {
           "id": experiment.id,
           "name": experiment.name,
+          "is_custom": experiment.is_custom,
           "tags": experiment.tags or [],
           "description": experiment.description,
           "created_at": experiment.created_at.isoformat(),
@@ -101,14 +108,27 @@ def create_experiment():
 
     name = data.get("name", "").strip()
     tags = data.get("tags")
+    is_custom = data.get("is_custom")
     description = data.get("description")
 
     if not name:
         return jsonify({"error": "Name is required"}), 400
 
+    if is_custom:
+      sat_config = data.get("sat_config") # required
+      main_config = data.get("main_config") # required
+      main_mn_config = data.get("main_mn_config")
+      # sat_mn config based on sat config unless otherwise changed
+
+      if not sat_config or not main_config:
+        return jsonify({"error": "Custom main and sat config required"}), 400
+
+      
+
     experiment = Experiment(
        name=name,
        tags=tags,
+       is_custom=is_custom,
        description=description,
        
     )
@@ -120,7 +140,24 @@ def create_experiment():
         db.session.rollback()
         return jsonify({"error": "Failed to create experiment"}), 400
     # ensure folder and default configs
-    ensure_experiment_folder_and_defaults(experiment.id)
+    if not is_custom:
+      ensure_experiment_folder_and_defaults(experiment.id)
+    else:
+      os.makedirs("local_workspace/" + str(experiment.id), exist_ok=True)
+      main_config = add_main_default(main_config, experiment.id)
+      sat_config = add_sat_config_default(sat_config)
+      with open(f'local_workspace/{experiment.id}/{MAIN_FILE}', 'w') as file:
+        yaml.dump(main_config, file, sort_keys=False)
+      with open(f'local_workspace/{experiment.id}/{SAT_FILE}', 'w') as file:
+        yaml.dump(sat_config, file, sort_keys=False)
+      sat_mn_config = create_sat_mn_config(sat_config)
+      with open(f'local_workspace/{experiment.id}/{SAT_MN_FILE}', 'w') as file:
+        yaml.dump(sat_mn_config, file, sort_keys=False)
+      if main_mn_config:
+        main_mn_config = add_main_mn_default(main_mn_config, experiment.id)
+        with open(f'local_workspace/{experiment.id}/{MAIN_MN_FILE}', 'w') as file:
+          yaml.dump(main_mn_config, file, sort_keys=False)  
+
     return jsonify({"message": "Experiment created", "experiment_id": experiment.id}), 201
 
 @bp.put("/experiments/<int:experiment_id>")
@@ -176,6 +213,26 @@ def update_experiment(experiment_id):
 
     if "description" in data:
         experiment.description = data["description"]
+    
+    if experiment.is_custom:
+      if "main_config" in data:
+        data["main_config"] = add_main_default(data["main_config"], experiment.id)
+        with open(f'local_workspace/{experiment.id}/{MAIN_FILE}', 'w') as file:
+          yaml.dump(data["main_config"], file, sort_keys=False)
+      if "sat_config" in data:
+        data["sat_config"] = add_sat_config_default(data["sat_config"])
+        with open(f'local_workspace/{experiment.id}/{SAT_FILE}', 'w') as file:
+          yaml.dump(data["sat_config"], file, sort_keys=False)
+        sat_mn_config = create_sat_mn_config(data["sat_config"])
+        with open(f'local_workspace/{experiment.id}/{SAT_MN_FILE}', 'w') as file:
+          yaml.dump(sat_mn_config, file, sort_keys=False)
+      if "main_mn_config" in data:
+        if data['main_mn_config'] == {}:
+          os.system(f"rm local_workspace/{experiment.id}/{MAIN_MN_FILE}")
+        else:
+          data["main_mn_config"] = add_main_mn_default(data["main_mn_config"], experiment.id)
+          with open(f'local_workspace/{experiment.id}/{MAIN_MN_FILE}', 'w') as file:
+            yaml.dump(data["main_mn_config"], file, sort_keys=False)
 
     db.session.commit()
 

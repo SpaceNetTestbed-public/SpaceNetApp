@@ -1,10 +1,12 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, send_file
 from app.db import get_db
 import json
 import yaml
 from app.configurations.create_config import GROUND_STATION_FILE
 from app.configurations.services import create_sat_config_wrapper, create_main_config_wrapper, create_main_mn_config_wrapper
 import os
+import io
+from zipfile import ZipFile, ZIP_DEFLATED
 
 from app.models.experiment import Experiment
 from app.models.ground_station_file import GroundStationFile
@@ -308,6 +310,8 @@ def get_main_mn_by_id(experiment_id):
     ).first()
     if not experiment:
         return jsonify({"error": "Experiment not found"}), 404
+    if not os.path.exists(f'local_workspace/{experiment_id}/{MAIN_MN_FILE}'):
+      return jsonify({"error": "Mininet main not found"}), 404 
     with open(f'local_workspace/{experiment_id}/{MAIN_MN_FILE}', 'r') as file:
         data_yaml = yaml.safe_load(file)
     return jsonify(data_yaml), 200
@@ -408,3 +412,43 @@ def create_main_mn(experiment_id):
         return jsonify({"error": str(e)}), 400
 
     return jsonify({"message": "main mn config updated"}), 200
+
+@bp.get("/experiments/<int:experiment_id>/download-config")
+def download_config_zip(experiment_id):
+    """
+    Download experiment configuration zip
+    ---
+    tags:
+      - Configurations
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: experiment_id
+        type: integer
+        required: true
+    responses:
+      200:
+        description: file download
+      404:
+        description: not found
+    """
+    experiment = Experiment.query.filter_by(id=experiment_id).first()
+    
+    if experiment is None:
+        return jsonify({"error": "Experiment not found"}), 404
+        
+    memory_file = io.BytesIO()
+
+    with ZipFile(memory_file, mode='w', compression=ZIP_DEFLATED) as zf:
+      zf.write(f"local_workspace/{experiment.id}/main_config.yaml", "main_config.yaml")
+      zf.write(f"local_workspace/{experiment.id}/sat_config.yaml", "sat_config.yaml")
+      zf.write(f"local_workspace/{experiment.id}/main_mn_config.yaml", "main_mn_config.yaml")
+
+    memory_file.seek(0)
+
+    return send_file(
+        memory_file,
+        as_attachment=True,
+        mimetype="application/zip",
+        download_name=f"configurations.zip")
