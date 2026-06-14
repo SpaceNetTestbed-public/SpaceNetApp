@@ -1,15 +1,20 @@
 from flask import Blueprint, jsonify, request, send_file
 from app.db import get_db
 import json
+from jsonschema import ValidationError
 import yaml
-from app.configurations.create_config import GROUND_STATION_FILE
+from app.configurations.create_config import GROUND_STATION_FILE, TLE_FILE_PATH
 from app.configurations.services import create_sat_config_wrapper, create_main_config_wrapper, create_main_mn_config_wrapper
 import os
+from datetime import datetime
+import shutil
 import io
+import os
 from zipfile import ZipFile, ZIP_DEFLATED
 
 from app.models.experiment import Experiment
 from app.models.ground_station_file import GroundStationFile
+from app.models.custom_tle import CustomTLE
 
 bp = Blueprint("configurations", __name__, url_prefix="")
 
@@ -68,6 +73,9 @@ def update_sat(experiment_id):
                   example: "starlink"
                 shells:
                   type: object
+                tle_id:
+                  type: integer
+                  example: -1
       - in: path
         name: experiment_id
         schema:
@@ -90,6 +98,47 @@ def update_sat(experiment_id):
         return jsonify({"error": "Experiment not found"}), 404
 
     data = request.get_json() or {}
+
+    try:
+      # This will raise ValueError if the date/time is invalid
+      dt = datetime(
+          year=data["Sim_Date_Time"]["StartYear"],
+          month=data["Sim_Date_Time"]["StartMonth"],
+          day=data["Sim_Date_Time"]["StartDay"],
+          hour=data["Sim_Date_Time"]["StartHour"],
+          minute=data["Sim_Date_Time"]["StartMinute"],
+          second=data["Sim_Date_Time"]["StartSecond"]
+      )
+    except ValueError as e:
+      raise ValidationError("Date is invalid: " + str(e))
+
+    if not 'tle_id' in data:
+      data['tle_id'] = -1
+    
+    if data['tle_id'] == -1:
+      data['TLEFilePath'] = TLE_FILE_PATH
+    else:
+      tle_file = CustomTLE.query.filter_by(
+          id=data['tle_id']
+      ).first()
+
+      if not tle_file:
+          return jsonify({"error": "TLE not found"}), 404
+
+      source_filepath = f"local_workspace/tles/{tle_file.id}.txt"
+
+      if not os.path.exists(source_filepath):
+          return jsonify({"error": "TLE file not found"}), 404
+
+      dest_folder = f"local_workspace/{experiment.id}/"
+      dest_file = dest_folder + f"{data['operator_name']}_tles/{str(int(dt.timestamp()))}.txt"
+
+      if os.path.exists(dest_folder + f"{data['operator_name']}_tles/"):
+        shutil.rmtree(dest_folder + f"{data['operator_name']}_tles/")
+      os.makedirs(dest_folder + f"{data['operator_name']}_tles/")
+
+      shutil.copy(source_filepath, dest_file)
+      data['TLEFilePath'] = dest_folder
 
     try:
         create_sat_config_wrapper(experiment_id, data)

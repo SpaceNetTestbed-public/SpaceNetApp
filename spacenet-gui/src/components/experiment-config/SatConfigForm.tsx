@@ -4,13 +4,18 @@ import { SatConfig, ShellConfig } from '@/types/experiment-config'
 import { ShellEditor } from './ShellEditor'
 import { Plus } from 'lucide-react'
 import { Button } from '../ui/button'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
+
 import {
   SIM_TIME_STEP_DURATION_MIN,
   SIM_TIME_STEP_DURATION_MAX,
   SIM_TIME_STEP_COUNT_MIN,
   SIM_TIME_STEP_COUNT_MAX,
 } from '@/lib/constants'
+import type { TLEFile } from '@/types/types'
+import { apiFetch } from '@/lib/api'
+import { getApiErrorMessage } from '@/lib/utils'
 
 interface SatConfigFormProps {
   config: SatConfig
@@ -19,6 +24,7 @@ interface SatConfigFormProps {
 }
 
 export function SatConfigForm({ config, onChange, tleLocked = false }: SatConfigFormProps) {
+  const [tleFiles, setTLEFiles] = useState<TLEFile[]>([]);
   const updateField = <K extends keyof SatConfig>(field: K, value: SatConfig[K]) => {
     onChange({ ...config, [field]: value })
   }
@@ -36,6 +42,19 @@ export function SatConfigForm({ config, onChange, tleLocked = false }: SatConfig
       Sim_Date_Time: { ...config.Sim_Date_Time, [field]: value },
     })
   }
+
+  useEffect(() => {
+      const fetchTLEFiles = async () => {
+        try {
+          const data = await apiFetch("/tles") as TLEFile[];
+          setTLEFiles(data);
+        } catch (err) {
+          console.error("Failed to load GS files:", err)
+          toast.error(getApiErrorMessage(err, 'Failed to load TLE files'), { id: 'sat-config-tles-files' })
+        }
+      };
+      fetchTLEFiles();
+    }, []); // only fetch files once
 
   // Normalize: API may return Record; type is ShellConfig[]
   const shellsArray: ShellConfig[] = Array.isArray(config.shells)
@@ -227,6 +246,33 @@ export function SatConfigForm({ config, onChange, tleLocked = false }: SatConfig
               />
             </div>
 
+          </div>
+        </div>
+      </div>
+
+      {/* TLE File Options */}
+      <div className="rounded-card bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border p-6">
+        <h3 className="text-lg font-semibold text-light-text dark:text-dark-text mb-4">
+          TLE File Options
+        </h3>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-light-text dark:text-dark-text mb-1.5">
+              TLE File
+            </label>
+
+            <select
+              value={config.tle_id}
+              onChange={(e) => {updateField("tle_id", parseInt(e.target.value) || 0)}}
+              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50 text-sm"
+            >
+              <option value={-1}>No Custom</option>
+              {tleFiles.map((file) => (
+                <option key={file.id} value={file.id}>
+                  {file.name}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
       </div>

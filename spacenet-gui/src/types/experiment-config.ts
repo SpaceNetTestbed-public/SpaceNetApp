@@ -33,6 +33,7 @@ export interface SatConfig {
   generate_TLE: boolean
   operator_name: 'starlink' | 'lunar'
   shells: ShellConfig[]
+  tle_id: number
   TLEFilePath: string
 }
 

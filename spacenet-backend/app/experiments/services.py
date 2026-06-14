@@ -10,7 +10,8 @@ def ensure_experiment_folder_and_defaults(experiment_id: int):
 
 def delete_experiment_folder(experiment_id: str):
     # Keep behavior same as before; shell out removal (same as original)
-    os.system(f"rm -rf local_workspace/{experiment_id}")
+    if os.path.exists(f"local_workspace/{experiment_id}"):
+        os.system(f"rm -rf local_workspace/{experiment_id}")
 
 def rename_experiment_folder(username, old_name, new_name):
     """

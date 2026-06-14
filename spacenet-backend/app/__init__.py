@@ -13,6 +13,7 @@ from .logs.routes import bp as log_bp
 from .outputs.routes import bp as output_bp
 from .gs.routes import bp as gs_bp
 from .extensions import db, migrate
+from .tles.routes import bp as tle_bp
 import app.models # noqa
 
 def register_routes(app):
@@ -24,6 +25,7 @@ def register_routes(app):
     app.register_blueprint(log_bp)
     app.register_blueprint(output_bp)
     app.register_blueprint(gs_bp)
+    app.register_blueprint(tle_bp)
 
 def create_app():
     app = Flask(__name__)

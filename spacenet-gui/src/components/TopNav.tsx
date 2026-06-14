@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Satellite, FileText, Info, Clock8, SatelliteDish } from 'lucide-react'
+import { Satellite, FileText, Info, Clock8, SatelliteDish, Orbit } from 'lucide-react'
 import { ThemeToggle } from './ThemeToggle'
 import { Button } from './ui/button'
 
@@ -13,6 +13,7 @@ export function TopNav() {
   const navItems = [
     { href: '/experiments', label: 'Experiments', icon: FileText },
     { href: '/jobs', label: 'Jobs', icon: Clock8 },
+    { href: '/tles', label: 'TLES', icon: Orbit },
     { href: '/ground-stations', label: 'Ground Stations', icon: SatelliteDish },
     { href: '/about', label: 'About', icon: Info },
   ]

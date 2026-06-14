@@ -10,7 +10,8 @@ export function ConditionalHeader() {
                      pathname.startsWith('/runs') ||
                      pathname.startsWith('/jobs') ||
                      pathname.startsWith('/ground-stations') ||
-                     pathname.startsWith('/about')
+                     pathname.startsWith('/about') ||
+                     pathname.startsWith('/tles')
 
   // Don't render Header on homepage (it has its own navbar)
   // App routes use the (app) layout with TopNav

@@ -43,3 +43,13 @@ export interface StationOption {
   lat?: number
   lon?: number
 }
+
+export interface TLEFile {
+  id: number
+  name: string
+  description: string
+}
+
+export interface TLEContent {
+  message: string
+}

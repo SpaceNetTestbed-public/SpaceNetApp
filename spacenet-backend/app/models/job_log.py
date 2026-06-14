@@ -28,4 +28,4 @@ class JobLog(db.Model):
     )
 
     # Optional relationships (recommended)
-    experiment = db.relationship("Experiment", backref="job_logs")
+    experiment = db.relationship("Experiment", back_populates="job_logs")

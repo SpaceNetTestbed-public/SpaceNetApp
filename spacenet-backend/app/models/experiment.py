@@ -21,5 +21,11 @@ class Experiment(db.Model):
         default=datetime.utcnow
     )
 
+    job_logs = db.relationship(
+        "JobLog",
+        back_populates="experiment",
+        passive_deletes=True
+    )
+
     def __repr__(self):
         return f"<Experiment {self.name}>"

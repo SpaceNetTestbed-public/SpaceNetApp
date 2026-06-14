@@ -20,7 +20,7 @@ def add_sat_defaults(sat_config):
     return sat_config
 
 def create_sat_config(experiment_id, sat_config ):
-    sat_config = add_sat_defaults(sat_config)
+    # sat_config = add_sat_defaults(sat_config)
     
     try:
       # This will raise ValueError if the date/time is invalid
@@ -38,8 +38,9 @@ def create_sat_config(experiment_id, sat_config ):
     min_dt = dt - timedelta(days=2)
     max_dt = dt + timedelta(days=2)
 
+    # edit this logic to include custom tle.
     sat_config['generate_TLE'] = True
-    tles_dir = os.path.join(TLE_FILE_PATH, f"{sat_config['operator_name']}_tles")
+    tles_dir = os.path.join(sat_config["TLEFilePath"], f"{sat_config['operator_name']}_tles")
     for filename in os.listdir(tles_dir):
         name, _ = os.path.splitext(filename)
         l = name.split('_')
