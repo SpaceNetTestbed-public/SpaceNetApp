@@ -4,6 +4,7 @@ import json
 from jsonschema import ValidationError
 import yaml
 from app.configurations.create_config import GROUND_STATION_FILE, TLE_FILE_PATH
+from app.experiments.services import ensure_experiment_folder_and_defaults
 from app.configurations.services import create_sat_config_wrapper, create_main_config_wrapper, create_main_mn_config_wrapper
 import os
 from datetime import datetime
@@ -171,8 +172,26 @@ def get_sat_by_id(experiment_id):
 
     if not experiment:
         return jsonify({"error": "Experiment not found"}), 404
-    with open(f'local_workspace/{experiment_id}/{SAT_FILE}', 'r') as file:
+
+    sat_path = f'local_workspace/{experiment_id}/{SAT_FILE}'
+    if not os.path.exists(sat_path):
+        try:
+            ensure_experiment_folder_and_defaults(experiment_id)
+        except Exception as e:
+            return jsonify({"error": f"Satellite config not found: {e}"}), 404
+
+    if not os.path.exists(sat_path):
+        return jsonify({"error": "Satellite config not found"}), 404
+
+    with open(sat_path, 'r') as file:
         data_yaml = yaml.safe_load(file)
+
+    if not data_yaml:
+        return jsonify({"error": "Satellite config is empty"}), 404
+
+    if "tle_id" not in data_yaml:
+        data_yaml["tle_id"] = -1
+
     return jsonify(data_yaml), 200
 
 @bp.get("/experiments/<int:experiment_id>/main")

@@ -5,8 +5,8 @@ from app.db import get_db
 from app.experiments.services import ensure_experiment_folder_and_defaults, delete_experiment_folder, rename_experiment_folder, duplicate_experiment_folder
 from app.extensions import rq, redis_client
 from rq.worker import Worker
-from app.gs.services import create_default_gs, geodetic_to_ecef
-from app.configurations.create_config import GROUND_STATION_FILE
+from app.gs.services import create_default_gs, geodetic_to_ecef, parse_ground_stations_from_file
+from app.configurations.create_config import resolve_ground_station_file
 from app.models.ground_station_file import GroundStationFile
 from sqlalchemy.exc import IntegrityError
 
@@ -25,17 +25,28 @@ def get_ground_stations():
       200:
         description: Returns a list of ground stations
     """
-    gs_files = GroundStationFile.query.filter_by().all()
+    try:
+        gs_files = GroundStationFile.query.filter_by().all()
+    except Exception as e:
+        return jsonify({"error": f"Failed to load ground station files: {e}"}), 500
 
     result = []
     for row in gs_files:
         filepath = f"local_workspace/gs/{row.id}.txt"
         count = 0
+        if not os.path.exists(filepath):
+            try:
+                create_default_gs(row.id)
+            except (FileNotFoundError, OSError):
+                pass
         if os.path.exists(filepath):
-            with open(filepath, "r", encoding="utf-8") as f:
-                for line in f:
-                    if line.strip():
-                        count += 1
+            try:
+                with open(filepath, "r", encoding="utf-8") as f:
+                    for line in f:
+                        if line.strip():
+                            count += 1
+            except OSError:
+                pass
         result.append({
             "id": row.id,
             "name": row.name,
@@ -70,24 +81,18 @@ def get_ground_station(gs_id):
     filepath = f"local_workspace/gs/{gs_id}.txt"
 
     if not os.path.exists(filepath):
+        try:
+            create_default_gs(gs_id)
+        except (FileNotFoundError, OSError) as e:
+            return jsonify({"error": f"Ground station file not found: {e}"}), 404
+
+    if not os.path.exists(filepath):
         return jsonify({"error": "Ground station file not found"}), 404
 
-    stations = []
-    with open(filepath, "r", encoding="utf-8") as f:
-        for line in f:
-            if line.strip() == "":
-                continue
-            parts = line.strip().split(",")
-            try:
-                station = {
-                    "id": int(parts[0]),
-                    "name": parts[1],
-                    "lat": float(parts[2]),
-                    "lon": float(parts[3]),
-                }
-                stations.append(station)
-            except (IndexError, ValueError):
-                continue  # skip malformed lines
+    try:
+        stations = parse_ground_stations_from_file(filepath)
+    except OSError as e:
+        return jsonify({"error": f"Could not read ground station file: {e}"}), 404
 
     return jsonify({"id": gs_file.id, "name": gs_file.name, "stations": stations}), 200
 
@@ -297,21 +302,14 @@ def get_ground_station_default():
       200:
         description: list
     """
-    stations = []
-    with open("dynamic-topology-generator/utils/gs_files/gs_default.txt", "r", encoding="utf-8") as f:
-        for line in f:
-            if line.strip() == "":
-                continue
-            parts = line.strip().split(",")
-            try:
-                station = {
-                    "id": int(parts[0]),
-                    "name": parts[1],
-                    "lat": float(parts[2]),
-                    "lon": float(parts[3]),
-                }
-                stations.append(station)
-            except (IndexError, ValueError):
-                continue  # skip malformed lines
+    try:
+        filepath = resolve_ground_station_file()
+    except FileNotFoundError as e:
+        return jsonify({"error": str(e)}), 404
+
+    try:
+        stations = parse_ground_stations_from_file(filepath)
+    except OSError as e:
+        return jsonify({"error": f"Could not read ground station file: {e}"}), 404
 
     return jsonify({"id": -1, "name": "default", "stations": stations}), 200

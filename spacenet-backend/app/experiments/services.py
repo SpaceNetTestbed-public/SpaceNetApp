@@ -1,8 +1,6 @@
 import os
-from app.configurations.create_config import create_default_configs, readd_file_paths
+from app.configurations.create_config import create_default_configs, readd_file_paths, resolve_ground_station_file
 import shutil
-
-GROUND_STATION_FILE =  "dynamic-topology-generator/utils/gs_files/gs_default.txt"
 
 def ensure_experiment_folder_and_defaults(experiment_id: int):
     os.makedirs("local_workspace/" + str(experiment_id), exist_ok=True)
@@ -88,7 +86,7 @@ def create_sat_mn_config(sat_config):
         total_sats += shell_total
 
     ground_station_count = 0
-    with open(GROUND_STATION_FILE, "r") as f:
+    with open(resolve_ground_station_file(), "r") as f:
         for line in f:
             ground_station_count += 1
     
