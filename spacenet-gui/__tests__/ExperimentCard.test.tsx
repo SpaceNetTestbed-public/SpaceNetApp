@@ -126,7 +126,7 @@ describe('ExperimentCard', () => {
     const user = userEvent.setup()
     const { onDelete } = renderCard()
 
-    await user.click(screen.getByLabelText('Open experiment actions'))
+    await user.click(screen.getByLabelText('Open actions for Alpha Mission'))
 
     const deleteItem = await screen.findByRole('menuitem', { name: /delete/i })
     await user.click(deleteItem)
@@ -144,7 +144,7 @@ describe('ExperimentCard', () => {
     const user = userEvent.setup()
     const { onDelete } = renderCard()
 
-    await user.click(screen.getByLabelText('Open experiment actions'))
+    await user.click(screen.getByLabelText('Open actions for Alpha Mission'))
     const deleteItem = await screen.findByRole('menuitem', { name: /delete/i })
     await user.click(deleteItem)
 
