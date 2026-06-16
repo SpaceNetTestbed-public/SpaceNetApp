@@ -57,6 +57,7 @@ jest.mock('@/lib/api', () => ({
 const mockExperiment: Experiment = {
   id: 'exp-1',
   name: 'Alpha Mission',
+  is_custom: false,
   description: 'First test experiment',
   tags: ['leo', 'starlink'],
   created_at: '2025-01-15T10:00:00Z',
@@ -67,6 +68,7 @@ const mockExperiment: Experiment = {
 function renderCard(overrides: Partial<Experiment> = {}) {
   const onDelete = jest.fn()
   const onDuplicate = jest.fn()
+  const onEdit = jest.fn()
   const experiment = { ...mockExperiment, ...overrides }
   render(
     <ExperimentCard
@@ -74,9 +76,10 @@ function renderCard(overrides: Partial<Experiment> = {}) {
       index={0}
       onDelete={onDelete}
       onDuplicate={onDuplicate}
+      onEdit={onEdit}
     />,
   )
-  return { onDelete, onDuplicate }
+  return { onDelete, onDuplicate, onEdit }
 }
 
 describe('ExperimentCard', () => {
