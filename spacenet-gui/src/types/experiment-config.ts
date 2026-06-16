@@ -116,6 +116,7 @@ export const defaultSatConfig: SatConfig = {
       perturber: 'Moon',
     },
   ],
+  tle_id: -1,
   TLEFilePath: '/home/spacenet/simulator/dynamic-topology-generator/utils/',
 }
 
