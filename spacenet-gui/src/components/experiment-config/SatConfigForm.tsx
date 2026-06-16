@@ -124,7 +124,7 @@ export function SatConfigForm({ config, onChange, tleLocked = false }: SatConfig
             className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
           >
             <option value="starlink">Starlink</option>
-            <option value="lunar">Lunar</option>
+            <option value="lunar">Lunar (beta testing)</option>
           </select>
         </div>
       </div>

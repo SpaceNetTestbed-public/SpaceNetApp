@@ -66,7 +66,7 @@ export function ShellEditor({ shell, index, onChange, onRemove, canRemove }: She
               min={MIN_ORBITS}
               max={MAX_ORBITS}
               value={shell.orbits}
-              onChange={(e) => updateField('orbits', parseInt(e.target.value) || 0)}
+              onChange={(e) => updateField('orbits', parseInt(e.target.value) || 1)}
               className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
             />
           </div>
@@ -80,7 +80,7 @@ export function ShellEditor({ shell, index, onChange, onRemove, canRemove }: She
               min={MIN_SATS_PER_ORBIT}
               max={MAX_SATS_PER_ORBIT}
               value={shell.sat_per_orbit}
-              onChange={(e) => updateField('sat_per_orbit', parseInt(e.target.value) || 0)}
+              onChange={(e) => updateField('sat_per_orbit', parseInt(e.target.value) || 1)}
               className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
             />
           </div>
@@ -95,7 +95,7 @@ export function ShellEditor({ shell, index, onChange, onRemove, canRemove }: She
               max={ALTITUDE_MAX_KM}
               step="1"
               value={shell.altitude}
-              onChange={(e) => updateField('altitude', parseFloat(e.target.value) || 0)}
+              onChange={(e) => updateField('altitude', parseFloat(e.target.value) || 200)}
               className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
               aria-invalid={shell.altitude < ALTITUDE_MIN_KM || shell.altitude > ALTITUDE_MAX_KM}
             />
@@ -134,7 +134,7 @@ export function ShellEditor({ shell, index, onChange, onRemove, canRemove }: She
             >
               <option value="walker_delta">walker_delta</option>
               <option value="walker_star">walker_star</option>
-              <option value="ELFD">ELFD</option>
+              <option value="ELFO">ELFO</option>
             </select>
           </div>
 
@@ -145,6 +145,7 @@ export function ShellEditor({ shell, index, onChange, onRemove, canRemove }: She
             <input
               type="number"
               min={IPP_INCREMENT_MIN}
+              max={360}
               value={shell.ipp_increment}
               onChange={(e) => updateField('ipp_increment', parseInt(e.target.value) || IPP_INCREMENT_MIN)}
               className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"

@@ -355,15 +355,17 @@ export function MainConfigForm({ config, onChange }: MainConfigFormProps) {
           <h3 className="text-lg font-semibold text-light-text dark:text-dark-text mb-2">
             Terrestrial Integration (ISTN)
           </h3>
-          <p className="text-xs text-light-text/60 dark:text-dark-subtext mb-4">
-            0 = pure satellite routing, 1 = terrestrial integration only, 2 = combined.
-          </p>
         </div>
 
         <div className="flex items-center justify-between mb-4">
-          <label className="text-sm font-medium text-light-text dark:text-dark-text">
-            ISTN Enabled
-          </label>
+          <div>
+            <label className="text-sm font-medium text-light-text dark:text-dark-text">
+              ISTN Enabled
+            </label>
+            <p className="text-xs text-light-text/60 dark:text-dark-subtext mt-1">
+              When enabled, routes traffic through terrestrial providers (Azure, WonderProxy) alongside satellite inter-satellite links.
+            </p>
+          </div>
           <label className="relative inline-flex items-center cursor-pointer">
             <input
               type="checkbox"
