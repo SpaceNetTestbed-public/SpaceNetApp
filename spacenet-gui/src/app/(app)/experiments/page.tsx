@@ -13,6 +13,42 @@ import { getApiErrorMessage } from '@/lib/utils'
 import { toast } from 'sonner'
 import yaml from "js-yaml"
 
+function ExperimentCardSkeleton() {
+  return (
+    <div className="rounded-card bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border p-6 animate-pulse">
+      <div className="flex items-start justify-between mb-4">
+        <div className="h-6 bg-light-border dark:bg-dark-border rounded w-2/3" />
+        <div className="flex items-center gap-1.5">
+          <div className="h-2 w-2 rounded-full bg-light-border dark:bg-dark-border" />
+          <div className="h-3 bg-light-border dark:bg-dark-border rounded w-16" />
+        </div>
+      </div>
+
+      <div className="space-y-2 mb-3">
+        <div className="h-4 bg-light-border dark:bg-dark-border rounded w-full" />
+        <div className="h-4 bg-light-border dark:bg-dark-border rounded w-4/5" />
+      </div>
+
+      <div className="flex items-center gap-2 mb-3">
+        <div className="h-5 w-16 bg-light-border dark:bg-dark-border rounded-full" />
+        <div className="h-5 w-16 bg-light-border dark:bg-dark-border rounded-full" />
+      </div>
+
+      <div className="flex flex-wrap gap-1.5 mb-4">
+        <div className="h-5 w-12 bg-light-border dark:bg-dark-border rounded-full" />
+        <div className="h-5 w-16 bg-light-border dark:bg-dark-border rounded-full" />
+      </div>
+
+      <div className="flex items-center gap-2 pt-4 border-t border-light-border dark:border-dark-border">
+        <div className="h-4 w-24 bg-light-border dark:bg-dark-border rounded mr-auto" />
+        <div className="h-9 w-28 bg-light-border dark:bg-dark-border rounded-btn" />
+        <div className="h-9 w-36 bg-light-border dark:bg-dark-border rounded-btn" />
+        <div className="h-9 w-9 bg-light-border dark:bg-dark-border rounded-btn" />
+      </div>
+    </div>
+  )
+}
+
 export default function ExperimentsPage() {
   const router = useRouter()
   // Backend data
@@ -261,17 +297,19 @@ export default function ExperimentsPage() {
           <Button
             className="bg-maroon hover:bg-maroon-hover text-white"
             onClick={openCreateModal}
+            aria-label="Create new experiment"
           >
-            <Plus className="h-4 w-4 mr-2" />
+            <Plus className="h-4 w-4 mr-2" aria-hidden="true" />
             New Experiment
           </Button>
         </div>
 
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-light-text/40 dark:text-dark-subtext" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-light-text/40 dark:text-dark-subtext" aria-hidden="true" />
           <input
             type="text"
             placeholder="Search projects..."
+            aria-label="Search projects"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-surface dark:bg-dark-surface text-light-text dark:text-dark-text placeholder:text-light-text/40 dark:placeholder:text-dark-subtext focus:outline-none focus:ring-2 focus:ring-maroon/50"
@@ -283,6 +321,7 @@ export default function ExperimentsPage() {
           <select
             value={filterGroup}
             onChange={e => setFilterGroup(e.target.value)}
+            aria-label="Filter by tag"
             className="pl-4 pr-10 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-surface dark:bg-dark-surface text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50 appearance-none"
           >
             {allGroups.map(group => (
@@ -291,29 +330,35 @@ export default function ExperimentsPage() {
               </option>
             ))}
           </select>
-          <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-light-text/40 dark:text-dark-subtext pointer-events-none" />
+          <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-light-text/40 dark:text-dark-subtext pointer-events-none" aria-hidden="true" />
         </div>
 
         {/* Icons */}
         <div className="flex gap-2">
-          <Button variant="ghost" size="sm" className="h-9 w-9 p-0" title="Upload">
-            <Upload className="h-4 w-4" />
+          <Button variant="ghost" size="sm" className="h-9 w-9 p-0" aria-label="Upload experiments">
+            <Upload className="h-4 w-4" aria-hidden="true" />
           </Button>
-          <Button variant="ghost" size="sm" className="h-9 w-9 p-0" title="Download">
-            <Download className="h-4 w-4" />
+          <Button variant="ghost" size="sm" className="h-9 w-9 p-0" aria-label="Download experiments">
+            <Download className="h-4 w-4" aria-hidden="true" />
           </Button>
-          <Button variant="ghost" size="sm" className="h-9 w-9 p-0" title="Metrics">
-            <BarChart3 className="h-4 w-4" />
+          <Button variant="ghost" size="sm" className="h-9 w-9 p-0" aria-label="View experiment metrics">
+            <BarChart3 className="h-4 w-4" aria-hidden="true" />
           </Button>
-          <Button variant="ghost" size="sm" className="h-9 w-9 p-0" title="Docs">
-            <BookOpen className="h-4 w-4" />
+          <Button variant="ghost" size="sm" className="h-9 w-9 p-0" aria-label="Open experiment documentation">
+            <BookOpen className="h-4 w-4" aria-hidden="true" />
           </Button>
         </div>
       </motion.div>
 
       {/* Experiment Groups */}
       <div className="space-y-6">
-        {filteredGroups.length > 0 ? (
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <ExperimentCardSkeleton key={i} />
+            ))}
+          </div>
+        ) : filteredGroups.length > 0 ? (
           filteredGroups.map((group, idx) => (
             <ExperimentGroup 
               key={group.name} 
@@ -326,7 +371,7 @@ export default function ExperimentsPage() {
           ))
         ) : (
           <div className="text-center py-12 text-light-text/60 dark:text-dark-subtext">
-            {loading ? 'Loading experiments...' : 'No experiments found.'}
+            No experiments found.
           </div>
         )}
       </div>
@@ -486,8 +531,8 @@ export default function ExperimentsPage() {
                     <label className="flex items-center justify-between text-sm font-medium mb-1 text-light-text dark:text-dark-text">
                       <span>Mininet Config YAML</span>
                       {editExperiment && existingConfigs.mininet && (
-                         <Button variant="ghost" size="sm" onClick={() => deleteConfig('mininet')} className="h-6 px-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-950">
-                           <Trash2 className="h-3 w-3 mr-1" /> Delete
+                         <Button variant="ghost" size="sm" onClick={() => deleteConfig('mininet')} className="h-6 px-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-950" aria-label="Delete Mininet configuration">
+                           <Trash2 className="h-3 w-3 mr-1" aria-hidden="true" /> Delete
                          </Button>
                       )}
                     </label>

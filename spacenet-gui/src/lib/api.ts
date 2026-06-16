@@ -13,6 +13,10 @@ export async function apiFetch(endpoint: string, options: RequestInit = {}): Pro
 
   if (!res.ok) {
     const text = await res.text();
+    const trimmed = text.trimStart();
+    if (trimmed.startsWith('<!') || trimmed.toLowerCase().startsWith('<html')) {
+      throw new Error('Server error — please try again.');
+    }
     throw new Error(text || 'Request failed');
   }
 
