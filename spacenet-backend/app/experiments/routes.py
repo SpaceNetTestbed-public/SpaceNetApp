@@ -1,4 +1,5 @@
 import os
+import zipfile
 from flask import Blueprint, jsonify, request, abort, send_file, current_app
 from app.db import get_db
 from app.experiments.services import ensure_experiment_folder_and_defaults, delete_experiment_folder, duplicate_experiment_folder, create_sat_mn_config, add_main_default, add_main_mn_default, add_sat_config_default
@@ -76,6 +77,15 @@ def get_experiment(experiment_id):
 
     return jsonify({"id": experiment.id, "name": experiment.name, "tags": experiment.tags, "description": experiment.description}), 200
 
+import os
+import json
+import zipfile
+import yaml
+import shutil
+from flask import request, jsonify
+from sqlalchemy.exc import IntegrityError
+# Assuming db, Experiment, add_main_default, create_sat_mn_config, etc. are imported above
+
 @bp.post("/experiments")
 def create_experiment():
     """
@@ -85,80 +95,187 @@ def create_experiment():
       - Experiments
     security:
       - bearerAuth: []
+    consumes:
+      - multipart/form-data
+      - application/json
     parameters:
-      - in: body
-        name: body
-        schema:
-          required:
-            - name
-          properties:
-            name:
-              type: string
-            tags:
-              type: array
-              items:
-                type: string
-            description:
-              type: string
+      - in: formData
+        name: name
+        type: string
+        required: true
+      - in: formData
+        name: is_custom
+        type: boolean
+      - in: formData
+        name: tags
+        type: array
+        items:
+          type: string
+      - in: formData
+        name: description
+        type: string
+      - in: formData
+        name: file
+        type: file
+      - in: formData
+        name: sat_config
+        type: string
+        description: JSON string of sat config
+      - in: formData
+        name: main_config
+        type: string
+        description: JSON string of main config
+      - in: formData
+        name: main_mn_config
+        type: string
+        description: JSON string of main mn config
     responses:
       201:
         description: Experiment created
     """
-    data = request.get_json() or {}
+    # 1. Safely Extract Data Based on Content-Type
+    if request.content_type and request.content_type.startswith("multipart/form-data"):
+        print("HERE")
+        name = request.form.get("name", "").strip()
+        description = request.form.get("description")
+        zip_file = request.files.get("experiment_payload")
+        
+        # --- ROBUST TAG PARSING ---
+        raw_tags = request.form.getlist("tags")
+        if not raw_tags:
+            raw_tags = request.form.getlist("tags[]")
 
-    name = data.get("name", "").strip()
-    tags = data.get("tags")
-    is_custom = data.get("is_custom")
-    description = data.get("description")
+        tags = []
+        for item in raw_tags:
+            item = item.strip()
+            if item.startswith('[') and item.endswith(']'):
+                try:
+                    parsed_list = json.loads(item)
+                    if isinstance(parsed_list, list):
+                        tags.extend([str(t).strip() for t in parsed_list])
+                except json.JSONDecodeError:
+                    tags.append(item)
+            elif ',' in item:
+                tags.extend([t.strip() for t in item.split(',') if t.strip()])
+            elif item:
+                tags.append(item)
+        # --------------------------
+        
+        # Explicitly handle boolean from string
+        is_custom = request.form.get("is_custom", "").lower() in ['true', '1', 'yes']
+        
+        # Safely parse JSON strings from form data
+        def parse_json_field(field_name):
+            val = request.form.get(field_name)
+            return json.loads(val) if val else None
 
+        try:
+            sat_config = parse_json_field("sat_config")
+            main_config = parse_json_field("main_config")
+            main_mn_config = parse_json_field("main_mn_config")
+        except json.JSONDecodeError:
+            return jsonify({"error": "Invalid JSON format in config fields"}), 400
+
+    else:
+        print("HERE1")
+        # Standard JSON request fallback
+        data = request.get_json() or {}
+        name = data.get("name", "").strip()
+        tags = data.get("tags", [])
+        is_custom = data.get("is_custom", False)
+        description = data.get("description")
+        zip_file = None
+        sat_config = data.get("sat_config")
+        main_config = data.get("main_config")
+        main_mn_config = data.get("main_mn_config")
+
+    # 2. Input Validation
     if not name:
         return jsonify({"error": "Name is required"}), 400
 
-    if is_custom:
-      sat_config = data.get("sat_config") # required
-      main_config = data.get("main_config") # required
-      main_mn_config = data.get("main_mn_config")
-      # sat_mn config based on sat config unless otherwise changed
+    if is_custom and not zip_file:
+        if not sat_config or not main_config:
+            return jsonify({"error": "Custom main and sat config required"}), 400
 
-      if not sat_config or not main_config:
-        return jsonify({"error": "Custom main and sat config required"}), 400
-
-      
-
+    # 3. Database Initialization
     experiment = Experiment(
-       name=name,
-       tags=tags,
-       is_custom=is_custom,
-       description=description,
-       
+        name=name,
+        tags=tags,
+        is_custom=is_custom,
+        description=description,
     )
 
     try:
         db.session.add(experiment)
+        db.session.flush() # Generates experiment.id, keeps transaction open
+
+        workspace_dir = os.path.join("local_workspace", str(experiment.id))
+
+        # 4. File System Operations
+        if not is_custom:
+            ensure_experiment_folder_and_defaults(experiment.id)
+            
+        elif zip_file:
+            os.makedirs(workspace_dir, exist_ok=True)
+            include = {"gifs", "output", "output_mn", "starlink_tles", 'main_config.yaml',  'main_mn_config.yaml', 'output_mn.zip', 'output.zip', 'sat_config.yaml', 'sat_mn_config.yaml'}
+            with zipfile.ZipFile(zip_file, "r") as zf:
+                members = [
+                    name for name in zf.namelist()
+                    if name.rstrip("/").split("/")[0] in include
+                ]
+                zf.extractall(path=workspace_dir, members=members)
+            
+            with open(os.path.join(workspace_dir, SAT_FILE), 'r+') as file:
+                sat_config = yaml.safe_load(file)
+                if 'dynamic-topology-generator' not in sat_config['TLEFilePath']:
+                    sat_config['TLEFilePath'] = f'local_workspace/{experiment.id}'
+                yaml.dump(sat_config, file, sort_keys=False)
+            with open(os.path.join(workspace_dir, MAIN_FILE), 'r+') as file:
+                main_config = yaml.safe_load(file)
+                main_w_def = add_main_default(main_config, experiment.id)
+                yaml.dump(main_w_def, file, sort_keys=False)
+            with open(os.path.join(workspace_dir, MAIN_MN_FILE), 'r+') as file:
+                main_mn_config = yaml.safe_load(file)
+                main_mn_def = add_main_mn_default(main_mn_config, experiment.id)
+                yaml.dump(main_mn_def, file, sort_keys=False)
+        else:
+            os.makedirs(workspace_dir, exist_ok=True)
+            
+            # Process configs
+            resolved_main_config = add_main_default(main_config, experiment.id)
+            resolved_sat_config = add_sat_config_default(sat_config)
+            sat_mn_config = create_sat_mn_config(resolved_sat_config)
+
+            # Dump YAMLs using os.path.join for safety
+            with open(os.path.join(workspace_dir, MAIN_FILE), 'w') as file:
+                yaml.dump(resolved_main_config, file, sort_keys=False)
+                
+            with open(os.path.join(workspace_dir, SAT_FILE), 'w') as file:
+                yaml.dump(resolved_sat_config, file, sort_keys=False)
+                
+            with open(os.path.join(workspace_dir, SAT_MN_FILE), 'w') as file:
+                yaml.dump(sat_mn_config, file, sort_keys=False)
+                
+            if main_mn_config:
+                resolved_main_mn_config = add_main_mn_default(main_mn_config, experiment.id)
+                with open(os.path.join(workspace_dir, MAIN_MN_FILE), 'w') as file:
+                    yaml.dump(resolved_main_mn_config, file, sort_keys=False)
+
+        # 5. Finalize Transaction
         db.session.commit()
+        return jsonify({"message": "Experiment created", "experiment_id": experiment.id}), 201
+
     except IntegrityError:
         db.session.rollback()
-        return jsonify({"error": "Failed to create experiment"}), 400
-    # ensure folder and default configs
-    if not is_custom:
-      ensure_experiment_folder_and_defaults(experiment.id)
-    else:
-      os.makedirs("local_workspace/" + str(experiment.id), exist_ok=True)
-      main_config = add_main_default(main_config, experiment.id)
-      sat_config = add_sat_config_default(sat_config)
-      with open(f'local_workspace/{experiment.id}/{MAIN_FILE}', 'w') as file:
-        yaml.dump(main_config, file, sort_keys=False)
-      with open(f'local_workspace/{experiment.id}/{SAT_FILE}', 'w') as file:
-        yaml.dump(sat_config, file, sort_keys=False)
-      sat_mn_config = create_sat_mn_config(sat_config)
-      with open(f'local_workspace/{experiment.id}/{SAT_MN_FILE}', 'w') as file:
-        yaml.dump(sat_mn_config, file, sort_keys=False)
-      if main_mn_config:
-        main_mn_config = add_main_mn_default(main_mn_config, experiment.id)
-        with open(f'local_workspace/{experiment.id}/{MAIN_MN_FILE}', 'w') as file:
-          yaml.dump(main_mn_config, file, sort_keys=False)  
-
-    return jsonify({"message": "Experiment created", "experiment_id": experiment.id}), 201
+        return jsonify({"error": "Database integrity error. Failed to create experiment."}), 400
+        
+    except Exception as e:
+        db.session.rollback()
+        # Clean up any partially created folders so they aren't orphaned
+        if 'workspace_dir' in locals() and os.path.exists(workspace_dir):
+            shutil.rmtree(workspace_dir, ignore_errors=True)
+            
+        return jsonify({"error": f"Failed to setup experiment files: {str(e)}"}), 500
 
 @bp.put("/experiments/<int:experiment_id>")
 def update_experiment(experiment_id):

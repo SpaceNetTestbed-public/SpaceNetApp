@@ -37,6 +37,7 @@ export default function ExperimentsPage() {
   const [yamlFile, setYamlFile] = useState<File | null>(null);
   const [yamlFile1, setYamlFile1] = useState<File | null>(null);
   const [yamlFile2, setYamlFile2] = useState<File | null>(null);
+  const [zipFile, setZipFile] = useState<File | null>(null);
   const [deleteMN, setDeleteMN] = useState<boolean | null>(false);
 
   useEffect(() => {
@@ -72,6 +73,7 @@ export default function ExperimentsPage() {
     setYamlFile(null);
     setYamlFile1(null);
     setYamlFile2(null);
+    setZipFile(null);
     setExistingConfigs({ main: null, sat: null, mininet: null });
     setDuplicateId(null);
     setEditExperiment(null);
@@ -294,21 +296,18 @@ export default function ExperimentsPage() {
           <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-light-text/40 dark:text-dark-subtext pointer-events-none" />
         </div>
 
-        {/* Icons */}
+        {/* Icons
         <div className="flex gap-2">
-          <Button variant="ghost" size="sm" className="h-9 w-9 p-0" title="Upload">
-            <Upload className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="sm" className="h-9 w-9 p-0" title="Download">
-            <Download className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="sm" className="h-9 w-9 p-0" title="Metrics">
-            <BarChart3 className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="sm" className="h-9 w-9 p-0" title="Docs">
-            <BookOpen className="h-4 w-4" />
-          </Button>
-        </div>
+          <div >
+            <Button
+              className="bg-maroon hover:bg-maroon-hover text-white"
+              // onClick
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Import
+            </Button>
+          </div>
+        </div> */}
       </motion.div>
 
       {/* Experiment Groups */}
@@ -321,7 +320,7 @@ export default function ExperimentsPage() {
               groupIndex={idx} 
               onDelete={removeExperiment} 
               onDuplicate={duplicateExperiment}
-              onEdit={openEditModal} // Passed edit handler here
+              onEdit={openEditModal} 
             />
           ))
         ) : (
@@ -342,7 +341,7 @@ export default function ExperimentsPage() {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.1, ease: 'easeOut' }}
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-lg max-h-[50vh] overflow-y-auto rounded-card shadow-xl p-6 bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border my-8"
+            className="w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-card shadow-xl p-6 bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border my-8"
           >
             <h2 className="text-2xl font-semibold mb-4 text-light-text dark:text-dark-text">
               {editExperiment ? "Edit Experiment" : (duplicateId ? "Duplicate Experiment" : "Create New Experiment")}
@@ -385,7 +384,7 @@ export default function ExperimentsPage() {
                   {tags.map((tag) => (
                     <span
                       key={tag}
-                      className="px-2 py-1 bg-maroon/20 text-maroon rounded-full text-sm cursor-pointer"
+                      className="px-2 py-1 bg-maroon/20 text-maroon rounded-full text-sm cursor-pointer hover:bg-maroon/30 transition-colors"
                       onClick={() => removeTag(tag)}
                     >
                       {tag} ×
@@ -406,110 +405,221 @@ export default function ExperimentsPage() {
               <div className="flex items-center gap-2 pt-2">
                 <input
                   type="checkbox"
+                  id="isCustomToggle"
                   checked={isCustom}
                   disabled={editExperiment !== null} // Prevents changing type during edit
                   onChange={(e) => setIsCustom(e.target.checked)}
-                  className="h-4 w-4"
+                  className="h-4 w-4 rounded border-light-border text-maroon focus:ring-maroon cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 />
-                <label className="text-sm text-light-text dark:text-dark-text">
-                  Custom Experiment (upload YAML)
+                <label htmlFor="isCustomToggle" className="text-sm font-medium text-light-text dark:text-dark-text cursor-pointer">
+                  Custom Experiment (upload YAML/ZIP)
                 </label>
               </div>
 
               {/* Config Files Section (only if custom is checked) */}
               {isCustom && (
-                <div className="space-y-4 pt-2 border-t border-light-border dark:border-dark-border">
-                  <p className="text-sm text-light-text/80 dark:text-dark-subtext mb-3 line-clamp-2">
-                    For custom configurations, please export non-custom YAML first to understand defaults and other settings.
-                  </p>
-                  <p className="text-sm text-light-text/80 dark:text-dark-subtext mb-3 line-clamp-2">
-                    The output path would automatically be added. Other paths are relative to the spacenet-backend folder.
-                  </p>
-                  {/* To be added later */}
-                  {/* <div>
-                    <label className="block text-sm font-medium text-light-text dark:text-dark-text mb-1.5">
-                      Ground Station File
-                    </label>
-
-                    <select
-                      value={gsFile}
-                      onChange={(e) => {setGSFile(parseInt(e.target.value) || -1);}}
-                      className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50 text-sm"
-                    >
-                      <option value={-1}>default</option>
-                      {gsFiles.map((file) => (
-                        <option key={file.id} value={file.id}>
-                          {file.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div> */}
-                  {/* MAIN CONFIG */}
-                  <div>
-                    <label className="flex items-center justify-between text-sm font-medium mb-1 text-light-text dark:text-dark-text">
-                      <span>Main Config YAML</span>
-                    </label>
-                    {editExperiment && existingConfigs.main && (
-                      <div className="mb-2 p-2 bg-light-bg dark:bg-dark-bg rounded border border-light-border dark:border-dark-border text-xs font-mono max-h-40 overflow-auto text-light-text dark:text-dark-text">
-                        <pre>{JSON.stringify(existingConfigs.main, null, 2)}</pre>
-                      </div>
-                    )}
-                    <input
-                      type="file"
-                      accept=".yaml,.yml"
-                      onChange={(e) => {deleteConfig('main'); setYamlFile(e.target.files?.[0] || null)}}
-                      className="w-full px-3 py-2 rounded-btn text-sm border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text"
-                    />
-                    {editExperiment && <p className="text-xs mt-1 text-gray-500">Uploading a new file will replace the existing configuration.</p>}
+                <div className="space-y-6 pt-4 border-t border-light-border dark:border-dark-border">
+                  <div className="bg-light-surface/50 dark:bg-dark-surface/50 p-3 rounded-md text-sm text-light-text/80 dark:text-dark-subtext space-y-2 border border-light-border/50 dark:border-dark-border/50">
+                    <p>For custom configurations, please export non-custom YAML first to understand defaults and other settings.</p>
+                    <p>The output path would automatically be added. Other paths are relative to the spacenet-backend folder.</p>
                   </div>
 
-                  {/* SAT CONFIG */}
-                  <div>
-                    <label className="flex items-center justify-between text-sm font-medium mb-1 text-light-text dark:text-dark-text">
-                      <span>SAT Config YAML</span>
-                    </label>
-                    {editExperiment && existingConfigs.sat && (
-                      <div className="mb-2 p-2 bg-light-bg dark:bg-dark-bg rounded border border-light-border dark:border-dark-border text-xs font-mono max-h-40 overflow-auto text-light-text dark:text-dark-text">
-                        <pre>{JSON.stringify(existingConfigs.sat, null, 2)}</pre>
-                      </div>
-                    )}
-                    <input
-                      type="file"
-                      accept=".yaml,.yml"
-                      onChange={(e) => {deleteConfig('sat');setYamlFile1(e.target.files?.[0] || null); }}
-                      className="w-full px-3 py-2 rounded-btn text-sm border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text"
-                    />
-                  </div>
+                  {/* Hide individual YAML uploads if a ZIP file is selected */}
+                  {!zipFile && (
+                    <div className="space-y-6 pt-2">
+                      {/* MAIN CONFIG */}
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-light-text dark:text-dark-text">
+                          Main Config YAML
+                        </label>
+                        
+                        {editExperiment && existingConfigs.main && !yamlFile && (
+                          <div className="p-3 bg-light-bg dark:bg-dark-bg rounded border border-light-border dark:border-dark-border text-xs font-mono max-h-40 overflow-auto text-light-text dark:text-dark-text">
+                            <pre>{JSON.stringify(existingConfigs.main, null, 2)}</pre>
+                          </div>
+                        )}
 
-                  {/* MININET CONFIG */}
-                  <div>
-                    <label className="flex items-center justify-between text-sm font-medium mb-1 text-light-text dark:text-dark-text">
-                      <span>Mininet Config YAML</span>
-                      {editExperiment && existingConfigs.mininet && (
-                         <Button variant="ghost" size="sm" onClick={() => deleteConfig('mininet')} className="h-6 px-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-950">
-                           <Trash2 className="h-3 w-3 mr-1" /> Delete
-                         </Button>
+                        <div className="flex items-center gap-2">
+                          <label className="flex-1 cursor-pointer">
+                            <input
+                              type="file"
+                              accept=".yaml,.yml"
+                              className="hidden"
+                              onChange={(e) => {
+                                deleteConfig('main'); 
+                                setYamlFile(e.target.files?.[0] || null);
+                              }}
+                            />
+                            <div className={`flex items-center justify-center w-full px-4 py-2.5 border border-dashed rounded-btn transition-colors ${yamlFile ? 'border-maroon bg-maroon/5 text-maroon' : 'border-light-border dark:border-dark-border hover:border-maroon hover:bg-maroon/5 text-light-text dark:text-dark-text'}`}>
+                              <Upload className="w-4 h-4 mr-2" />
+                              <span className="text-sm font-medium truncate">
+                                {yamlFile ? yamlFile.name : 'Upload Main YAML'}
+                              </span>
+                            </div>
+                          </label>
+                          {yamlFile && (
+                            <Button 
+                              variant="ghost" 
+                              className="px-3 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                              onClick={() => setYamlFile(null)}
+                              title="Clear file"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
+                        {editExperiment && !yamlFile && (
+                          <p className="text-xs text-light-text/60 dark:text-dark-subtext">Uploading a new file will replace the existing configuration.</p>
+                        )}
+                      </div>
+
+                      {/* SAT CONFIG */}
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-light-text dark:text-dark-text">
+                          SAT Config YAML
+                        </label>
+                        
+                        {editExperiment && existingConfigs.sat && !yamlFile1 && (
+                          <div className="p-3 bg-light-bg dark:bg-dark-bg rounded border border-light-border dark:border-dark-border text-xs font-mono max-h-40 overflow-auto text-light-text dark:text-dark-text">
+                            <pre>{JSON.stringify(existingConfigs.sat, null, 2)}</pre>
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-2">
+                          <label className="flex-1 cursor-pointer">
+                            <input
+                              type="file"
+                              accept=".yaml,.yml"
+                              className="hidden"
+                              onChange={(e) => {
+                                deleteConfig('sat');
+                                setYamlFile1(e.target.files?.[0] || null);
+                              }}
+                            />
+                            <div className={`flex items-center justify-center w-full px-4 py-2.5 border border-dashed rounded-btn transition-colors ${yamlFile1 ? 'border-maroon bg-maroon/5 text-maroon' : 'border-light-border dark:border-dark-border hover:border-maroon hover:bg-maroon/5 text-light-text dark:text-dark-text'}`}>
+                              <Upload className="w-4 h-4 mr-2" />
+                              <span className="text-sm font-medium truncate">
+                                {yamlFile1 ? yamlFile1.name : 'Upload SAT YAML'}
+                              </span>
+                            </div>
+                          </label>
+                          {yamlFile1 && (
+                            <Button 
+                              variant="ghost" 
+                              className="px-3 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                              onClick={() => setYamlFile1(null)}
+                              title="Clear file"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* MININET CONFIG */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="text-sm font-medium text-light-text dark:text-dark-text">
+                            Mininet Config YAML
+                          </label>
+                          {editExperiment && existingConfigs.mininet && !yamlFile2 && (
+                            <Button variant="ghost" size="sm" onClick={() => deleteConfig('mininet')} className="h-6 px-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-950">
+                              <Trash2 className="h-3 w-3 mr-1" /> Delete Existing
+                            </Button>
+                          )}
+                        </div>
+                        
+                        {editExperiment && existingConfigs.mininet && !yamlFile2 && (
+                          <div className="p-3 bg-light-bg dark:bg-dark-bg rounded border border-light-border dark:border-dark-border text-xs font-mono max-h-40 overflow-auto text-light-text dark:text-dark-text">
+                            <pre>{JSON.stringify(existingConfigs.mininet, null, 2)}</pre>
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-2">
+                          <label className="flex-1 cursor-pointer">
+                            <input
+                              type="file"
+                              accept=".yaml,.yml"
+                              className="hidden"
+                              onChange={(e) => {
+                                deleteConfig('mininet'); 
+                                setYamlFile2(e.target.files?.[0] || null); 
+                                setDeleteMN(false);
+                              }}
+                            />
+                            <div className={`flex items-center justify-center w-full px-4 py-2.5 border border-dashed rounded-btn transition-colors ${yamlFile2 ? 'border-maroon bg-maroon/5 text-maroon' : 'border-light-border dark:border-dark-border hover:border-maroon hover:bg-maroon/5 text-light-text dark:text-dark-text'}`}>
+                              <Upload className="w-4 h-4 mr-2" />
+                              <span className="text-sm font-medium truncate">
+                                {yamlFile2 ? yamlFile2.name : 'Upload Mininet YAML'}
+                              </span>
+                            </div>
+                          </label>
+                          {yamlFile2 && (
+                            <Button 
+                              variant="ghost" 
+                              className="px-3 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                              onClick={() => setYamlFile2(null)}
+                              title="Clear file"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ZIP PAYLOAD */}
+                  {(!existingConfigs.main && !yamlFile) && (<div className={`space-y-2 ${!zipFile ? 'pt-4 mt-4 border-t border-light-border/50 dark:border-dark-border/50' : 'pt-2'}`}>
+                    <label className="block text-sm font-medium text-light-text dark:text-dark-text">
+                      Experiment Payload (.zip)
+                    </label>
+                    <p className="text-xs text-light-text/60 dark:text-dark-subtext mb-2">
+                      Upload any required scripts, binaries, or assets as a zipped directory.
+                    </p>
+                    
+                    <div className="flex items-center gap-2">
+                      <label className="flex-1 cursor-pointer">
+                        <input
+                          type="file"
+                          accept=".zip,application/zip"
+                          className="hidden"
+                          onChange={(e) => {
+                            setZipFile(e.target.files?.[0] || null);
+                            // Automatically clear YAML states if they switch to zip
+                            if (e.target.files?.[0]) {
+                              setYamlFile(null);
+                              setYamlFile1(null);
+                              setYamlFile2(null);
+                            }
+                          }}
+                        />
+                        <div className={`flex items-center justify-center w-full px-4 py-2.5 border border-dashed rounded-btn transition-colors ${zipFile ? 'border-maroon bg-maroon/5 text-maroon' : 'border-light-border dark:border-dark-border hover:border-maroon hover:bg-maroon/5 text-light-text dark:text-dark-text'}`}>
+                          <Upload className="w-4 h-4 mr-2" />
+                          <span className="text-sm font-medium truncate">
+                            {zipFile ? zipFile.name : 'Upload .zip Archive'}
+                          </span>
+                        </div>
+                      </label>
+                      {zipFile && (
+                        <Button 
+                          variant="ghost" 
+                          className="px-3 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                          onClick={() => setZipFile(null)}
+                          title="Clear file"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       )}
-                    </label>
-                    {editExperiment && existingConfigs.mininet && (
-                      <div className="mb-2 p-2 bg-light-bg dark:bg-dark-bg rounded border border-light-border dark:border-dark-border text-xs font-mono max-h-40 overflow-auto text-light-text dark:text-dark-text">
-                        <pre>{JSON.stringify(existingConfigs.mininet, null, 2)}</pre>
-                      </div>
-                    )}
-                    <input
-                      type="file"
-                      accept=".yaml,.yml"
-                      onChange={(e) => {deleteConfig('mininet'); setYamlFile2(e.target.files?.[0] || null); setDeleteMN(false)}}
-                      className="w-full px-3 py-2 rounded-btn text-sm border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text"
-                    />
-                  </div>
+                    </div>
+                  </div>)}
 
                 </div>
               )}
             </div>
 
             {/* Buttons */}
-            <div className="flex justify-end gap-2 mt-6">
+            <div className="flex justify-end gap-2 mt-6 pt-4 border-t border-light-border dark:border-dark-border">
               <Button
                 variant="outline"
                 onClick={() => setShowModal(false)}
@@ -524,29 +634,33 @@ export default function ExperimentsPage() {
                 onClick={async () => {
                   setCreating(true);
                   try {
-                    const body: CreateExperimentBody = { name: newName.trim(), is_custom: isCustom };
-                    if (newDescription.trim()) body.description = newDescription.trim();
-                    if (tags) body.tags = tags;
+                    const formData = new FormData();
+                    
+                    formData.append('name', newName.trim());
+                    formData.append('is_custom', String(isCustom));
+                    
+                    if (newDescription.trim()) formData.append('description', newDescription.trim());
+                    if (tags && tags.length > 0) formData.append('tags', JSON.stringify(tags));
+                    if (deleteMN) formData.append('delete_mn', 'true');
 
-                    if (deleteMN) {
-                      body.main_mn_config = {};
-                    }
-
-                    // Handle YAML file overrides
                     if (isCustom && yamlFile) {
                       const text = await yamlFile.text();
                       const con = yaml.load(text) as Record<string, any>;
-                      body.main_config = con;
+                      formData.append('main_config', JSON.stringify(con));
                     }
                     if (isCustom && yamlFile1) {
                       const text1 = await yamlFile1.text();
                       const con = yaml.load(text1) as Record<string, any>;
-                      body.sat_config = con;
+                      formData.append('sat_config', JSON.stringify(con));
                     }
                     if (isCustom && yamlFile2) {
                       const text2 = await yamlFile2.text();
                       const con = yaml.load(text2) as Record<string, any>;
-                      body.main_mn_config = con;
+                      formData.append('main_mn_config', JSON.stringify(con));
+                    }
+
+                    if (isCustom && zipFile) {
+                      formData.append('experiment_payload', zipFile); 
                     }
 
                     let expId = '';
@@ -554,33 +668,32 @@ export default function ExperimentsPage() {
                     if (editExperiment) {
                       await apiFetch(`/experiments/${editExperiment.id}`, {
                         method: 'PUT',
-                        body: JSON.stringify(body),
+                        body: formData, 
                       });
                       expId = editExperiment.id;
                       toast.success('Experiment updated successfully');
                     } else if (duplicateId !== null) {
                       const newExp = await apiFetch(`/experiments/${duplicateId}/duplicate`, {
                         method: 'POST',
-                        body: JSON.stringify(body),
+                        body: formData,
                       }) as CreateExperimentResponse;
                       expId = newExp.experiment_id;
                       toast.success('Experiment duplicated');
                     } else {
                       const newExp = await apiFetch('/experiments', {
                         method: 'POST',
-                        body: JSON.stringify(body),
+                        body: formData,
                       }) as CreateExperimentResponse;
                       expId = newExp.experiment_id;
                       toast.success('Experiment created');
                     }
 
-                    const wasCustom = isCustom; // capture before reset
+                    const wasCustom = isCustom; 
                     const wasEdit = !!editExperiment;
                     
                     resetForm();
                     setShowModal(false);
                     
-                    // Route or refresh logic
                     if (!wasEdit && !wasCustom)  {
                       router.push(`/experiments/${expId}/edit`);
                     } else {
