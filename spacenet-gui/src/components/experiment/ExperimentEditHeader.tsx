@@ -42,10 +42,10 @@ export function ExperimentEditHeader({
         </p>
       </div>
       <div className="flex items-center gap-2">
-        <Button variant="outline" onClick={onImportYAML}>
+        {/* <Button variant="outline" onClick={onImportYAML}>
           <Upload className="h-4 w-4 mr-2" />
           Import YAML
-        </Button>
+        </Button> */}
         <Button variant="outline" onClick={onExportYAML}>
           <Download className="h-4 w-4 mr-2" />
           Export YAML

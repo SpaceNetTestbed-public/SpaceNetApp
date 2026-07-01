@@ -4,6 +4,7 @@ import { Play, Download, FileText, CheckCircle2, AlertTriangle } from 'lucide-re
 import { Button } from '@/components/ui/button'
 
 interface PhaseCardProps {
+  id: number
   phase: 1 | 2
   hasOutput: boolean
   isSubmitting: boolean
@@ -19,6 +20,7 @@ interface PhaseCardProps {
 }
 
 export function PhaseCard({
+  id,
   phase,
   hasOutput,
   isSubmitting,
@@ -52,6 +54,16 @@ export function PhaseCard({
         {phase === 1
           ? 'Initial constellation generation and preprocessing.'
           : 'Optimization and output generation.'}
+      </p>
+      <p className="text-sm text-gray-500">
+        {hasOutput && phase === 1
+          && `Output could be found in the spacenet-backend folder under local_workspace/${id}/output`
+        }
+      </p>
+      <p className="text-sm text-gray-500">
+        {hasOutput && phase === 2
+          && `Output could be found in the spacenet-backend folder under local_workspace/${id}}/output_mn`
+        }
       </p>
       <div className="flex gap-2">
         <Button className="flex-1" onClick={onRun} disabled={isSubmitting || !canRun || (!hasMN && phase === 2)}>
