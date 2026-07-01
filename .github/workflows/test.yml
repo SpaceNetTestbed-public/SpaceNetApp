@@ -11,6 +11,9 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: spacenet-gui
 
     steps:
       - name: Checkout code
@@ -20,6 +23,7 @@ jobs:
         uses: pnpm/action-setup@v4
         with:
           version: 9
+          package_json_file: spacenet-gui/package.json
 
       - name: Setup Node.js 24
         uses: actions/setup-node@v4
@@ -29,9 +33,7 @@ jobs:
           cache-dependency-path: spacenet-gui/pnpm-lock.yaml
 
       - name: Install dependencies
-        working-directory: spacenet-gui
         run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Run tests
-        working-directory: spacenet-gui
         run: pnpm test
