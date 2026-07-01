@@ -85,16 +85,14 @@ export function MainConfigForm({ config, onChange }: MainConfigFormProps) {
   const handleIstnToggle = (enabled: boolean) => {
     setIstnEnabled(enabled)
     if (enabled) {
-      updateField('TopoCrit', 2) // Default to "Both"
-      // Initialize Azure and WonderProxy if they don't exist
-      if (!config.Azure) {
-        updateField('Azure', { t2t_use_azure: false })
-      }
-      if (!config.WonderProxy) {
-        updateField('WonderProxy', { t2t_use_wonderproxy: false })
-      }
+      // Batch all changes into a single onChange call so earlier fields are
+      // not overwritten by later updateField calls sharing the same stale config.
+      const updates: Partial<MainConfig> = { TopoCrit: 2 }
+      if (!config.Azure) updates.Azure = { t2t_use_azure: false }
+      if (!config.WonderProxy) updates.WonderProxy = { t2t_use_wonderproxy: false }
+      onChange({ ...config, ...updates })
     } else {
-      updateField('TopoCrit', 0) // ISL only
+      onChange({ ...config, TopoCrit: 0 })
       setAzureChecked(false)
       setWonderProxyChecked(false)
       setIstnError('')

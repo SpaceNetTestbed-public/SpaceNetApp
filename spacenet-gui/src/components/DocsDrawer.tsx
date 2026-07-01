@@ -25,19 +25,25 @@ export function DocsDrawer({ open, onClose }: DocsDrawerProps) {
     }
   }, [open])
 
-  const exampleYAML = `# constellation_template.yaml
+  const exampleYAML = `# sat_config.yaml (example)
 
-ConstellationName: Starlink_1584
-TotalSatCnt: 1584
-TotalGSCnt: 10
-shell1:
-  altitude: 550
-  inclination: 53
-  orbits: 72
-  sat_per_orbit: 22
-TLEFilePath: ./data/starlink.tle
-GroundStationFile: ./data/ground_stations.csv
-OutputFilePath: ./output/constellation_output.yaml`
+operator_name: starlink
+Sim_Length:
+  TimeStepDuration: 60
+  TimeStepCount: 1440
+Sim_Date_Time:
+  StartYear: 2025
+  StartMonth: 1
+  StartDay: 1
+shells:
+  shell1:
+    name: shell1
+    orbits: 72
+    sat_per_orbit: 22
+    altitude: 550
+    inclination: 53.0
+    pattern: walker_delta
+TLEFilePath: /path/to/tle/files/`
 
   const handleCopy = () => {
     navigator.clipboard.writeText(exampleYAML)
@@ -109,32 +115,35 @@ OutputFilePath: ./output/constellation_output.yaml`
                     YAML Configuration Structure
                   </h3>
 
-                  {/* constellation_template.yaml */}
+                  {/* sat_config.yaml */}
                   <div className="mb-6 p-4 rounded-card bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border">
                     <h4 className="text-sm font-mono font-semibold text-maroon dark:text-maroon mb-3">
-                      constellation_template.yaml
+                      sat_config.yaml
                     </h4>
                     <ul className="space-y-1.5 text-xs text-light-text/70 dark:text-dark-subtext">
                       <li>
-                        <span className="font-semibold">ConstellationName</span> – Unique identifier for the constellation
+                        <span className="font-semibold">operator_name</span> – Constellation operator (<code>starlink</code>, <code>lunar</code>)
                       </li>
                       <li>
-                        <span className="font-semibold">TotalSatCnt</span> – Total number of satellites
+                        <span className="font-semibold">Sim_Length.TimeStepDuration</span> – Simulation time step in seconds
                       </li>
                       <li>
-                        <span className="font-semibold">TotalGSCnt</span> – Total number of ground stations
+                        <span className="font-semibold">Sim_Length.TimeStepCount</span> – Number of simulation time steps
                       </li>
                       <li>
-                        <span className="font-semibold">shell1.altitude</span> – Orbital altitude in km
+                        <span className="font-semibold">shells.shell1.altitude</span> – Orbital altitude in km
                       </li>
                       <li>
-                        <span className="font-semibold">shell1.inclination</span> – Orbital inclination in degrees
+                        <span className="font-semibold">shells.shell1.inclination</span> – Orbital inclination in degrees
                       </li>
                       <li>
-                        <span className="font-semibold">shell1.orbits</span> – Number of orbital planes
+                        <span className="font-semibold">shells.shell1.orbits</span> – Number of orbital planes
                       </li>
                       <li>
-                        <span className="font-semibold">shell1.sat_per_orbit</span> – Satellites per orbital plane
+                        <span className="font-semibold">shells.shell1.sat_per_orbit</span> – Satellites per orbital plane
+                      </li>
+                      <li>
+                        <span className="font-semibold">shells.shell1.pattern</span> – Walker pattern (<code>walker_delta</code>, <code>walker_star</code>, <code>ELFD</code>)
                       </li>
                     </ul>
                   </div>
@@ -146,19 +155,19 @@ OutputFilePath: ./output/constellation_output.yaml`
                     </h4>
                     <ul className="space-y-1.5 text-xs text-light-text/70 dark:text-dark-subtext">
                       <li>
-                        <span className="font-semibold">EpochIntervalDuration</span> – Simulation time step (seconds)
-                      </li>
-                      <li>
-                        <span className="font-semibold">EpochIntervalCount</span> – Number of simulation steps
-                      </li>
-                      <li>
-                        <span className="font-semibold">RouteWeight</span> – Routing algorithm (shortest-path, hop-count)
+                        <span className="font-semibold">RouteWeight</span> – Routing metric (<code>hops</code>, <code>latency</code>, <code>distance</code>, <code>capacity</code>)
                       </li>
                       <li>
                         <span className="font-semibold">SourceNode</span> – Starting node ID
                       </li>
                       <li>
                         <span className="font-semibold">DestNode</span> – Destination node ID
+                      </li>
+                      <li>
+                        <span className="font-semibold">min_elevation_angle</span> – Minimum GSL elevation angle in degrees (default 25)
+                      </li>
+                      <li>
+                        <span className="font-semibold">TopoCrit</span> – Link type: <code>0</code> = ISL only, <code>1</code> = Terrestrial only, <code>2</code> = Both
                       </li>
                     </ul>
                   </div>
@@ -276,20 +285,12 @@ OutputFilePath: ./output/constellation_output.yaml`
                     >
                       → GitHub Repository <ExternalLink className="h-3.5 w-3.5" />
                     </a>
-                    <a
-                      href="#"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-sm text-maroon hover:text-maroon-hover"
-                    >
-                      → SciTech 2025 Manuscript (DOI) <ExternalLink className="h-3.5 w-3.5" />
-                    </a>
-                    <a
-                      href="#"
-                      className="flex items-center gap-2 text-sm text-maroon hover:text-maroon-hover"
-                    >
-                      → Contact Support
-                    </a>
+                    <p className="flex items-center gap-2 text-sm text-light-text/60 dark:text-dark-subtext">
+                      → SciTech 2025 Manuscript (DOI forthcoming)
+                    </p>
+                    <p className="flex items-center gap-2 text-sm text-light-text/60 dark:text-dark-subtext">
+                      → Contact Support: reach out via GitHub Issues
+                    </p>
                   </div>
                 </section>
               </div>

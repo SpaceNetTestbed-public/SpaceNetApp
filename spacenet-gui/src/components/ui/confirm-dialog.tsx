@@ -30,8 +30,6 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
-  if (!isOpen) return null
-
   const confirmButtonRef = useRef<HTMLButtonElement | null>(null)
 
   // Focus and keyboard handling for accessibility
@@ -59,6 +57,8 @@ export function ConfirmDialog({
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isOpen, onCancel, onConfirm])
+
+  if (!isOpen) return null
 
   return (
     <div

@@ -16,17 +16,21 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 20
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js 24
         uses: actions/setup-node@v4
         with:
           node-version: 24
-
-      - name: Install pnpm globally
-        run: npm install -g pnpm
+          cache: 'pnpm'
+          cache-dependency-path: spacenet-gui/pnpm-lock.yaml
 
       - name: Install dependencies
         working-directory: spacenet-gui
-        run: pnpm install --ignore-scripts
+        run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Run tests
         working-directory: spacenet-gui

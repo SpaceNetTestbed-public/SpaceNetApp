@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
+import { AlertTriangle } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { SatConfigForm } from '@/components/experiment-config/SatConfigForm'
 import { MainConfigForm } from '@/components/experiment-config/MainConfigForm'
@@ -35,7 +36,6 @@ export default function EditExperimentPage() {
   })
 
   useEffect(() => {
-    // TODO: Fetch from API
     const fetchExperiment = async () => {
       try {
         const data = await apiFetch(`/experiments/${id}`) as Experiment
@@ -44,6 +44,7 @@ export default function EditExperimentPage() {
         const mainMnConfigData = await apiFetch(`/experiments/${id}/main-mn`) as { AppName: string }
         setAppName(mainMnConfigData.AppName)
         setOriginalAppName(mainMnConfigData.AppName)
+        const hasBeenRun = data.hasPhase1 || data.hasPhase2
         setConfig({
           experimentName: data.name,
           description: data.description ?? "",
@@ -52,9 +53,8 @@ export default function EditExperimentPage() {
           mainConfig: mainConfigData,
           id: data.id,
           isNew: false,
-          hasBeenRun: false, // TODO: Check if experiment has been run
+          hasBeenRun,
         })
-
         setOriginalConfig({
           experimentName: data.name,
           description: data.description ?? "",
@@ -63,17 +63,18 @@ export default function EditExperimentPage() {
           mainConfig: mainConfigData,
           id: data.id,
           isNew: false,
-          hasBeenRun: false, // TODO: Check if experiment has been run
+          hasBeenRun,
         })
       } catch (err) {
         console.error("Failed to load experiment:", err)
         toast.error(getApiErrorMessage(err, 'Failed to load experiment'), { id: 'experiment-load' })
       } finally {
+        // Keep setLoading here only — do NOT call it outside the async fn
+        // or loading becomes false before data arrives (race condition).
         setLoading(false)
       }
     }
     fetchExperiment()
-    setLoading(false)
   }, [id])
 
   if (loading || !config) {
@@ -119,16 +120,21 @@ export default function EditExperimentPage() {
 
   const handleExportYAML = async () => {
     if (!config) return
-    const res = await fetch(`${API_URL}/experiments/${id}/download-config`)
-    if (!res.ok) throw new Error('Download failed')
-    const blob = await res.blob()
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${config.experimentName || 'experiment'}_config.zip`
-    a.click()
-    URL.revokeObjectURL(url)
-    toast.success('YAML exported')
+    try {
+      const res = await fetch(`${API_URL}/experiments/${id}/download-config`)
+      if (!res.ok) throw new Error('Download failed')
+      const blob = await res.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${config.experimentName || 'experiment'}_config.zip`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast.success('YAML exported')
+    } catch (err) {
+      console.error('YAML export failed:', err)
+      toast.error(getApiErrorMessage(err, 'Failed to export YAML'), { id: 'yaml-export' })
+    }
   }
 
   return (
@@ -143,6 +149,18 @@ export default function EditExperimentPage() {
         onSave={() => handleSave(config)}
         onSaveAndRun={handleSaveAndRun}
       />
+
+      {config.hasBeenRun && (
+        <div className="mb-6 p-4 rounded-card bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 flex items-start gap-3">
+          <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" aria-hidden="true" />
+          <div>
+            <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">This experiment has already been run</p>
+            <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
+              Editing the satellite configuration may invalidate existing simulation results.
+            </p>
+          </div>
+        </div>
+      )}
 
       <ExperimentMetadataForm
         experimentName={config.experimentName}

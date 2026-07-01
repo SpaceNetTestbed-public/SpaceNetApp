@@ -228,7 +228,9 @@ def update_experiment(experiment_id):
           yaml.dump(sat_mn_config, file, sort_keys=False)
       if "main_mn_config" in data:
         if data['main_mn_config'] == {}:
-          os.system(f"rm local_workspace/{experiment.id}/{MAIN_MN_FILE}")
+          mn_path = f"local_workspace/{experiment.id}/{MAIN_MN_FILE}"
+          if os.path.exists(mn_path):
+              os.remove(mn_path)
         else:
           data["main_mn_config"] = add_main_mn_default(data["main_mn_config"], experiment.id)
           with open(f'local_workspace/{experiment.id}/{MAIN_MN_FILE}', 'w') as file:

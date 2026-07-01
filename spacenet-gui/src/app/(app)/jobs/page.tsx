@@ -25,6 +25,26 @@ interface JobItem {
   args: unknown[]
 }
 
+function JobTableSkeleton() {
+  return (
+    <>
+      <tr role="status" aria-live="polite">
+        <td colSpan={6} className="sr-only">Loading jobs…</td>
+      </tr>
+      {Array.from({ length: 5 }).map((_, i) => (
+        <tr key={i} className="animate-pulse">
+          <td className="px-6 py-4"><div className="h-4 bg-light-border dark:bg-dark-border rounded w-40" /></td>
+          <td className="px-6 py-4"><div className="h-4 bg-light-border dark:bg-dark-border rounded w-16" /></td>
+          <td className="px-6 py-4"><div className="h-4 bg-light-border dark:bg-dark-border rounded w-36" /></td>
+          <td className="px-6 py-4"><div className="h-4 bg-light-border dark:bg-dark-border rounded w-8" /></td>
+          <td className="px-6 py-4"><div className="h-5 bg-light-border dark:bg-dark-border rounded-full w-20" /></td>
+          <td className="px-6 py-4"><div className="h-8 bg-light-border dark:bg-dark-border rounded w-16" /></td>
+        </tr>
+      ))}
+    </>
+  )
+}
+
 export default function JobQueuePage() {
   const [jobs, setJobs] = useState<JobItem[]>([])
   const [loadingQueue, setLoadingQueue] = useState(true)
@@ -231,7 +251,9 @@ export default function JobQueuePage() {
             </thead>
 
             <tbody className="divide-y divide-light-border dark:divide-dark-border">
-              {filteredJobs.map((job, i) => (
+              {loadingQueue ? (
+                <JobTableSkeleton />
+              ) : filteredJobs.map((job, i) => (
                 <motion.tr
                   key={job.job_id}
                   initial={{ opacity: 0, y: 12 }}
@@ -254,12 +276,12 @@ export default function JobQueuePage() {
                         className="h-8 px-2"
                         onClick={() => openLogs(job)}
                         disabled={loadingLogsJobId === job.job_id}
-                        title="Logs"
+                        aria-label={loadingLogsJobId === job.job_id ? `Loading logs for ${job.experiment_name}` : `View logs for ${job.experiment_name}`}
                         >
                         {loadingLogsJobId === job.job_id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                         ) : (
-                          <FileText className="h-4 w-4" />
+                          <FileText className="h-4 w-4" aria-hidden="true" />
                         )}
                         </Button>
                     )}
@@ -272,12 +294,12 @@ export default function JobQueuePage() {
                         className="h-8 px-2 text-red-500 hover:text-red-600"
                         onClick={() => cancelJob(job)}
                         disabled={cancelingJobId === job.job_id}
-                        title="Cancel Job"
+                        aria-label={cancelingJobId === job.job_id ? `Canceling ${job.experiment_name}` : `Cancel ${job.experiment_name}`}
                         >
                         {cancelingJobId === job.job_id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                         ) : (
-                          <XCircle className="h-4 w-4" />
+                          <XCircle className="h-4 w-4" aria-hidden="true" />
                         )}
                         </Button>
                     )}
@@ -289,9 +311,9 @@ export default function JobQueuePage() {
           </table>
         </div>
 
-        {filteredJobs.length === 0 && (
-          <div className="text-center py-12 text-light-text/60 dark:text-dark-subtext">
-            {loadingQueue ? 'Loading jobs...' : 'No jobs found'}
+        {!loadingQueue && filteredJobs.length === 0 && (
+          <div role="status" aria-live="polite" className="text-center py-12 text-light-text/60 dark:text-dark-subtext">
+            No jobs found
           </div>
         )}
       </motion.div>
@@ -304,8 +326,8 @@ export default function JobQueuePage() {
               <h2 className="text-xl font-semibold text-light-text dark:text-dark-text">
                 Job Logs:
               </h2>
-              <Button variant="ghost" size="sm" onClick={() => setSelectedJob(null)}>
-                <XCircle className="h-5 w-5" />
+              <Button variant="ghost" size="sm" onClick={() => setSelectedJob(null)} aria-label="Close logs">
+                <XCircle className="h-5 w-5" aria-hidden="true" />
               </Button>
             </div>
             <div className="p-6 overflow-y-auto flex-1">

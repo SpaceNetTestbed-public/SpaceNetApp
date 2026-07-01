@@ -31,9 +31,8 @@ export function ShellEditor({ shell, index, onChange, onRemove, canRemove }: She
     onChange(index, { ...shell, [field]: value })
   }
 
-  if (!shell.perturber) {
-    shell.perturber = 'None'
-  }
+  // Derive a safe default without mutating the prop.
+  const perturber: ShellConfig['perturber'] = shell.perturber ?? 'None'
 
   return (
     <div className="border border-light-border dark:border-dark-border rounded-card bg-light-surface dark:bg-dark-surface">
@@ -134,7 +133,7 @@ export function ShellEditor({ shell, index, onChange, onRemove, canRemove }: She
             >
               <option value="walker_delta">walker_delta</option>
               <option value="walker_star">walker_star</option>
-              <option value="ELFO">ELFO</option>
+              <option value="ELFD">ELFD</option>
             </select>
           </div>
 
@@ -171,7 +170,7 @@ export function ShellEditor({ shell, index, onChange, onRemove, canRemove }: She
               Perturber <span className="text-red-500">*</span>
             </label>
             <select
-              value={shell.perturber}
+              value={perturber}
               onChange={(e) => updateField('perturber', e.target.value as ShellConfig['perturber'])}
               className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
             >
@@ -179,7 +178,7 @@ export function ShellEditor({ shell, index, onChange, onRemove, canRemove }: She
               <option value="Moon">Moon</option>
               <option value="None">None</option>
             </select>
-            {shell.perturber !== 'None' && shell.body === shell.perturber && (
+            {perturber !== 'None' && shell.body === perturber && (
               <p className="text-xs text-red-500 mt-1">Body and Perturber cannot be the same</p>
             )}
           </div>

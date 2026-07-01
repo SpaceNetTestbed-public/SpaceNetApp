@@ -3,10 +3,12 @@
 import { useState, useMemo, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Plus, Search, Upload, Download, BarChart3, BookOpen, ChevronDown, Trash2 } from 'lucide-react'
+import { Plus, Search, BookOpen, ChevronDown, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { ExperimentGroup } from '@/components/ExperimentGroup'
 import { motion } from 'framer-motion'
+import { DocsDrawer } from '@/components/DocsDrawer'
 import { Experiment, CreateExperimentBody, CreateExperimentResponse, GroundStationFileSummary } from '@/types/types'
 import { apiFetch } from '@/lib/api'
 import { getApiErrorMessage } from '@/lib/utils'
@@ -74,6 +76,9 @@ export default function ExperimentsPage() {
   const [yamlFile1, setYamlFile1] = useState<File | null>(null);
   const [yamlFile2, setYamlFile2] = useState<File | null>(null);
   const [deleteMN, setDeleteMN] = useState<boolean | null>(false);
+  const [deleteMNConfirm, setDeleteMNConfirm] = useState(false);
+  const [deletingMN, setDeletingMN] = useState(false);
+  const [docsOpen, setDocsOpen] = useState(false);
 
   useEffect(() => {
       const fetchGSFiles = async () => {
@@ -160,17 +165,31 @@ export default function ExperimentsPage() {
     setShowModal(true);
   };
 
-  const deleteConfig = async (type: 'main' | 'sat' | 'mininet') => {
+  const deleteConfig = (type: 'main' | 'sat') => {
     if (!editExperiment) return;
-    try {
-      if (type == 'mininet') {
-        setDeleteMN(true)
-      }
+    setExistingConfigs((prev) => ({ ...prev, [type]: null }));
+    toast.success(`${type.toUpperCase()} config replaced — save to apply changes.`);
+  };
 
-      setExistingConfigs((prev) => ({ ...prev, [type]: null }));
-      toast.success(`${type.toUpperCase()} config deleted successfully.`);
+  const handleDeleteMininetConfig = async () => {
+    if (!editExperiment) return;
+    setDeletingMN(true);
+    try {
+      await apiFetch(`/experiments/${editExperiment.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ main_mn_config: {} }),
+      });
+      setExistingConfigs((prev) => ({ ...prev, mininet: null }));
+      setDeleteMN(false);
+      setDeleteMNConfirm(false);
+      setShowModal(false);
+      resetForm();
+      toast.success('Mininet configuration removed');
+      await fetchExperiments();
     } catch (err) {
-      toast.error(`Failed to delete ${type} config.`);
+      toast.error(getApiErrorMessage(err, 'Failed to remove Mininet configuration'), { id: 'mn-config-delete' });
+    } finally {
+      setDeletingMN(false);
     }
   };
 
@@ -335,16 +354,13 @@ export default function ExperimentsPage() {
 
         {/* Icons */}
         <div className="flex gap-2">
-          <Button variant="ghost" size="sm" className="h-9 w-9 p-0" aria-label="Upload experiments">
-            <Upload className="h-4 w-4" aria-hidden="true" />
-          </Button>
-          <Button variant="ghost" size="sm" className="h-9 w-9 p-0" aria-label="Download experiments">
-            <Download className="h-4 w-4" aria-hidden="true" />
-          </Button>
-          <Button variant="ghost" size="sm" className="h-9 w-9 p-0" aria-label="View experiment metrics">
-            <BarChart3 className="h-4 w-4" aria-hidden="true" />
-          </Button>
-          <Button variant="ghost" size="sm" className="h-9 w-9 p-0" aria-label="Open experiment documentation">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-9 w-9 p-0"
+            aria-label="Open documentation"
+            onClick={() => setDocsOpen(true)}
+          >
             <BookOpen className="h-4 w-4" aria-hidden="true" />
           </Button>
         </div>
@@ -502,7 +518,10 @@ export default function ExperimentsPage() {
                     <input
                       type="file"
                       accept=".yaml,.yml"
-                      onChange={(e) => {deleteConfig('main'); setYamlFile(e.target.files?.[0] || null)}}
+                      onChange={(e) => {
+                        if (editExperiment && existingConfigs.main) deleteConfig('main');
+                        setYamlFile(e.target.files?.[0] || null);
+                      }}
                       className="w-full px-3 py-2 rounded-btn text-sm border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text"
                     />
                     {editExperiment && <p className="text-xs mt-1 text-gray-500">Uploading a new file will replace the existing configuration.</p>}
@@ -521,7 +540,10 @@ export default function ExperimentsPage() {
                     <input
                       type="file"
                       accept=".yaml,.yml"
-                      onChange={(e) => {deleteConfig('sat');setYamlFile1(e.target.files?.[0] || null); }}
+                      onChange={(e) => {
+                        if (editExperiment && existingConfigs.sat) deleteConfig('sat');
+                        setYamlFile1(e.target.files?.[0] || null);
+                      }}
                       className="w-full px-3 py-2 rounded-btn text-sm border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text"
                     />
                   </div>
@@ -531,7 +553,13 @@ export default function ExperimentsPage() {
                     <label className="flex items-center justify-between text-sm font-medium mb-1 text-light-text dark:text-dark-text">
                       <span>Mininet Config YAML</span>
                       {editExperiment && existingConfigs.mininet && (
-                         <Button variant="ghost" size="sm" onClick={() => deleteConfig('mininet')} className="h-6 px-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-950" aria-label="Delete Mininet configuration">
+                         <Button
+                           variant="ghost"
+                           size="sm"
+                           onClick={() => setDeleteMNConfirm(true)}
+                           className="h-6 px-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-950"
+                           aria-label="Delete Mininet configuration"
+                         >
                            <Trash2 className="h-3 w-3 mr-1" aria-hidden="true" /> Delete
                          </Button>
                       )}
@@ -544,7 +572,13 @@ export default function ExperimentsPage() {
                     <input
                       type="file"
                       accept=".yaml,.yml"
-                      onChange={(e) => {deleteConfig('mininet'); setYamlFile2(e.target.files?.[0] || null); setDeleteMN(false)}}
+                      onChange={(e) => {
+                        if (editExperiment && existingConfigs.mininet) {
+                          setExistingConfigs((prev) => ({ ...prev, mininet: null }));
+                        }
+                        setYamlFile2(e.target.files?.[0] || null);
+                        setDeleteMN(false);
+                      }}
                       className="w-full px-3 py-2 rounded-btn text-sm border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text"
                     />
                   </div>
@@ -646,6 +680,20 @@ export default function ExperimentsPage() {
         </div>
       )}
 
+      <DocsDrawer open={docsOpen} onClose={() => setDocsOpen(false)} />
+
+      <ConfirmDialog
+        isOpen={deleteMNConfirm}
+        title="Remove Mininet Configuration"
+        message="Are you sure you want to permanently remove the Mininet configuration? This cannot be undone."
+        confirmLabel="Remove"
+        confirmLoadingLabel="Removing…"
+        cancelLabel="Cancel"
+        variant="danger"
+        isConfirming={deletingMN}
+        onConfirm={handleDeleteMininetConfig}
+        onCancel={() => setDeleteMNConfirm(false)}
+      />
     </div>
   )
 }

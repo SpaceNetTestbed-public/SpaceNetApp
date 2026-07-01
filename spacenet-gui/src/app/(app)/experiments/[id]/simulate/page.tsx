@@ -49,6 +49,7 @@ export default function SimulationPage() {
   const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const pollingPhaseRef = useRef<1 | 2 | null>(null)
   const trackedJobIdRef = useRef<string | null>(null)
+  const gifPollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   /* ----------------------------- Logs ----------------------------- */
   const [showLogs, setShowLogs] = useState(false)
@@ -89,18 +90,22 @@ export default function SimulationPage() {
           await checkStatus()
         } else if (job.status === 'failed') {
           stopPolling()
-          toast.error(`Phase ${currentPhase} failed - check jobs page for logs`)
+          toast.error(`Phase ${currentPhase} failed — check the Jobs page for logs`)
+        } else if (job.status === 'cancelled') {
+          stopPolling()
+          toast.info(`Phase ${currentPhase} was cancelled`)
         }
       } catch {
         // poll failures are silently ignored
       }
-    }, 5000)
+    }, 3000)
   }
 
-  // Cleanup polling on unmount
+  // Cleanup all intervals on unmount
   useEffect(() => {
     return () => {
       if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current)
+      if (gifPollingRef.current) clearInterval(gifPollingRef.current)
     }
   }, [])
 
@@ -148,11 +153,10 @@ export default function SimulationPage() {
   useEffect(() => {
     const checkMainMN = async () => {
       try {
-        const res = await fetch(`${API_URL}/experiments/${id}/main-mn`)
-        if (!res.ok) {
-          setHasMN(false)
-        }
-        console.log("HERE")
+      const res = await fetch(`${API_URL}/experiments/${id}/main-mn`)
+      if (!res.ok) {
+        setHasMN(false)
+      }
       } catch (err) {
         console.error('Failed to fetch main mn config', err)
         toast.error(getApiErrorMessage(err, 'Failed to load Main MN config'), { id: 'experiment-main-mn-config-load' })
@@ -262,67 +266,80 @@ export default function SimulationPage() {
 
   /* ----------------------------- Run visualization ----------------------------- */
   const handleCreateGif = async () => {
-    try{
-      setIsSubmitting(true)
-      setHasOutput(false)
-      setOutputChecked(false)
+    setIsSubmitting(true)
+    setHasOutput(false)
+    setOutputChecked(false)
+    try {
       await apiFetch(`/experiments/${id}/create-gif`, {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          gif_name:'output',
-          plot_GSs:true,
-          make_gif:false,
-          plot_in_3D:true,
-          plot_debug:false,
-          plot_only_optimal:false,
-          plot_optimal_orbits:false,
-          center_gif:false,
+          gif_name: 'output',
+          plot_GSs: true,
+          make_gif: false,
+          plot_in_3D: true,
+          plot_debug: false,
+          plot_only_optimal: false,
+          plot_optimal_orbits: false,
+          center_gif: false,
           time_step: timeSteps[timeStepIndex],
-          lat:0,
-          long:0,
-          shells: shellColors
-        })
+          lat: 0,
+          long: 0,
+          shells: shellColors,
+        }),
       })
-      await new Promise(r=>setTimeout(r,6000))
-      await fetchOutput()
-    }catch(err){
-      console.error(err)
+    } catch (err) {
       toast.error(getApiErrorMessage(err, 'Failed to generate output'), { id: 'experiment-output-generate' })
-    }finally{
       setIsSubmitting(false)
+      return
     }
+    // Poll every 3 s until the output file appears (max 20 × 3 s = 60 s)
+    if (gifPollingRef.current) clearInterval(gifPollingRef.current)
+    let attempts = 0
+    gifPollingRef.current = setInterval(async () => {
+      attempts++
+      try {
+        const res = await fetch(`${API_URL}/experiments/${id}/gifs/output/file`)
+        if (res.ok || attempts >= 20) {
+          clearInterval(gifPollingRef.current!)
+          gifPollingRef.current = null
+          await fetchOutput()
+          setIsSubmitting(false)
+        }
+      } catch {
+        if (attempts >= 20) {
+          clearInterval(gifPollingRef.current!)
+          gifPollingRef.current = null
+          setIsSubmitting(false)
+        }
+      }
+    }, 3000)
   }
 
   const handleCreateAniGif = async () => {
-    try{
+    try {
       setIsSubmitting(true)
       await apiFetch(`/experiments/${id}/create-gif`, {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          gif_name:'output-gif',
-          plot_GSs:true,
-          make_gif:true,
-          plot_in_3D:true,
-          plot_debug:false,
-          plot_only_optimal:false,
-          plot_optimal_orbits:false,
-          center_gif:true,
+          gif_name: 'output-gif',
+          plot_GSs: true,
+          make_gif: true,
+          plot_in_3D: true,
+          plot_debug: false,
+          plot_only_optimal: false,
+          plot_optimal_orbits: false,
+          center_gif: true,
           time_step: 0,
-          lat:0,
-          long:0,
-          shells: {
-            '0': 'green',
-            '1': 'yellow',
-            '2': 'blue'
-          }
-        })
+          lat: 0,
+          long: 0,
+          shells: shellColors,
+        }),
       })
-    }catch(err){
-      console.error(err)
+    } catch (err) {
       toast.error(getApiErrorMessage(err, 'Failed to generate output'), { id: 'experiment-output-generate' })
-    }finally{
+    } finally {
       setIsSubmitting(false)
     }
   }
@@ -359,26 +376,22 @@ export default function SimulationPage() {
 
     if (phase === 1) {
       await apiFetch(`/experiments/${id}/create-gif`, {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          gif_name:'output-gif',
-          plot_GSs:true,
-          make_gif:true,
-          plot_in_3D:true,
-          plot_debug:false,
-          plot_only_optimal:false,
-          plot_optimal_orbits:false,
-          center_gif:true,
+          gif_name: 'output-gif',
+          plot_GSs: true,
+          make_gif: true,
+          plot_in_3D: true,
+          plot_debug: false,
+          plot_only_optimal: false,
+          plot_optimal_orbits: false,
+          center_gif: true,
           time_step: 0,
-          lat:0,
-          long:0,
-          shells: {
-            shell1: 'green',
-            shell2: 'yellow',
-            shell3: 'blue'
-          }
-        })
+          lat: 0,
+          long: 0,
+          shells: shellColors,
+        }),
       })
     }
   }

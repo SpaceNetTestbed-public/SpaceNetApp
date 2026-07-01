@@ -17,6 +17,28 @@ interface GroundStationFile {
   station_count: number
 }
 
+function GSTableSkeleton() {
+  return (
+    <>
+      <tr role="status" aria-live="polite">
+        <td colSpan={3} className="sr-only">Loading ground station files…</td>
+      </tr>
+      {Array.from({ length: 4 }).map((_, i) => (
+        <tr key={i} className="animate-pulse">
+          <td className="px-6 py-4"><div className="h-4 bg-light-border dark:bg-dark-border rounded w-40" /></td>
+          <td className="px-6 py-4"><div className="h-4 bg-light-border dark:bg-dark-border rounded w-12" /></td>
+          <td className="px-6 py-4">
+            <div className="flex gap-2">
+              <div className="h-8 w-8 bg-light-border dark:bg-dark-border rounded" />
+              <div className="h-8 w-8 bg-light-border dark:bg-dark-border rounded" />
+            </div>
+          </td>
+        </tr>
+      ))}
+    </>
+  )
+}
+
 export default function GroundStationsPage() {
   const router = useRouter()
   const [gsFiles, setGsFiles] = useState<GroundStationFile[]>([])
@@ -133,7 +155,9 @@ export default function GroundStationsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-light-border dark:divide-dark-border">
-              {filteredFiles.map((file, i) => (
+              {loading ? (
+                <GSTableSkeleton />
+              ) : filteredFiles.map((file, i) => (
                 <motion.tr
                   key={file.id}
                   initial={{ opacity: 0, y: 12 }}
@@ -168,9 +192,9 @@ export default function GroundStationsPage() {
           </table>
         </div>
 
-        {filteredFiles.length === 0 && (
-          <div className="text-center py-12 text-light-text/60 dark:text-dark-subtext">
-            {loading ? 'Loading files...' : 'No ground station files found.'}
+        {!loading && filteredFiles.length === 0 && (
+          <div role="status" aria-live="polite" className="text-center py-12 text-light-text/60 dark:text-dark-subtext">
+            No ground station files found.
           </div>
         )}
       </motion.div>
