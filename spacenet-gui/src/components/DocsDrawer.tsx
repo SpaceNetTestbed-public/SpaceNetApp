@@ -117,7 +117,7 @@ TLEFilePath: /path/to/tle/files/`
 
                   {/* sat_config.yaml */}
                   <div className="mb-6 p-4 rounded-card bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border">
-                    <h4 className="text-sm font-mono font-semibold text-maroon dark:text-maroon mb-3">
+                    <h4 className="text-sm font-mono font-semibold text-vt-maroon dark:text-vt-maroon mb-3">
                       sat_config.yaml
                     </h4>
                     <ul className="space-y-1.5 text-xs text-light-text/70 dark:text-dark-subtext">
@@ -150,7 +150,7 @@ TLEFilePath: /path/to/tle/files/`
 
                   {/* main_config.yaml */}
                   <div className="mb-6 p-4 rounded-card bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border">
-                    <h4 className="text-sm font-mono font-semibold text-maroon dark:text-maroon mb-3">
+                    <h4 className="text-sm font-mono font-semibold text-vt-maroon dark:text-vt-maroon mb-3">
                       main_config.yaml
                     </h4>
                     <ul className="space-y-1.5 text-xs text-light-text/70 dark:text-dark-subtext">
@@ -281,7 +281,7 @@ TLEFilePath: /path/to/tle/files/`
                       href="https://github.com/vt-spacenet"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-sm text-maroon hover:text-maroon-hover"
+                      className="flex items-center gap-2 text-sm text-vt-maroon hover:text-vt-maroon-hover"
                     >
                       → GitHub Repository <ExternalLink className="h-3.5 w-3.5" />
                     </a>

@@ -1,13 +1,19 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { useCallback, useEffect, useState } from 'react'
+import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Save, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, Save, Plus, Trash2, RadioTower } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Card } from '@/components/ui/card'
+import { Skeleton, SkeletonStatus } from '@/components/ui/skeleton'
+import { EmptyState } from '@/components/ui/empty-state'
+import { ErrorState } from '@/components/ui/error-state'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
-import { apiFetch } from '@/lib/api'
+import { apiFetch, ApiError } from '@/lib/api'
+import { getApiErrorMessage } from '@/lib/utils'
 
 interface Station {
   id: number
@@ -22,6 +28,16 @@ interface StationSet {
   stations: Station[]
 }
 
+function latError(lat: number): string | undefined {
+  if (Number.isNaN(lat) || lat < -90 || lat > 90) return 'Latitude must be between -90 and 90'
+  return undefined
+}
+
+function lonError(lon: number): string | undefined {
+  if (Number.isNaN(lon) || lon < -180 || lon > 180) return 'Longitude must be between -180 and 180'
+  return undefined
+}
+
 export default function EditStationSetPage() {
   const params = useParams()
   const id = params.id as string
@@ -30,42 +46,51 @@ export default function EditStationSetPage() {
   const [original, setOriginal] = useState<StationSet | null>(null)
   const [hasUnsaved, setHasUnsaved] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
   const [isValid, setIsValid] = useState(false)
 
   // ----------------------------
   // Load set
   // ----------------------------
-  useEffect(() => {
-    const loadSet = async () => {
-      try {
-        const data = await apiFetch(`/ground_station_file/${id}`) as StationSet
-        setSetData(data)
-        setOriginal(data)
-      } catch (err) {
-        toast.error("Failed to load station set")
+  const loadSet = useCallback(async () => {
+    setLoading(true)
+    setLoadError(null)
+    try {
+      const data = await apiFetch(`/ground_station_file/${id}`) as StationSet
+      setSetData(data)
+      setOriginal(data)
+    } catch (err) {
+      // Expected 4xx responses (e.g. 404 for a set that doesn't exist)
+      // are surfaced to the user via the ErrorState below — no need to
+      // pollute the console. Only log unexpected failures.
+      if (!(err instanceof ApiError) || err.status >= 500) {
         console.error(err)
-      } finally {
-        setLoading(false)
       }
+      setLoadError(getApiErrorMessage(err, 'Failed to load station set'))
+    } finally {
+      setLoading(false)
     }
-
-    loadSet()
   }, [id])
 
   useEffect(() => {
+    void loadSet()
+  }, [loadSet])
+
+  useEffect(() => {
     if (!setData) return;
-  
+
     // validate set name
     const nameOk = setData.name.trim().length > 0;
-  
+
     // validate stations
     const stationsOk = setData.stations.every(s => {
       const nameGood = s.name.trim().length > 0;
-      const latGood = typeof s.lat === "number" && s.lat >= -90 && s.lat <= 90;
-      const lonGood = typeof s.lon === "number" && s.lon >= -180 && s.lon <= 180;
+      const latGood = typeof s.lat === "number" && !latError(s.lat);
+      const lonGood = typeof s.lon === "number" && !lonError(s.lon);
       return nameGood && latGood && lonGood;
     });
-  
+
     setIsValid(nameOk && stationsOk);
   }, [setData]);
 
@@ -117,6 +142,7 @@ export default function EditStationSetPage() {
   }
 
   const save = async () => {
+    setSaving(true)
     try {
       await apiFetch(`/ground_station_file/${id}`, {
         method: "PUT",
@@ -129,13 +155,40 @@ export default function EditStationSetPage() {
       setHasUnsaved(false)
 
     } catch (err) {
-      toast.error("Failed to save")
+      toast.error(getApiErrorMessage(err, 'Failed to save station set'), { id: 'gs-set-save' })
       console.error(err)
+    } finally {
+      setSaving(false)
     }
   }
 
-  if (loading || !setData) {
-    return <div className="p-10">Loading...</div>
+  if (loading) {
+    return (
+      <div className="p-6 sm:p-8 space-y-6">
+        <SkeletonStatus>Loading station set…</SkeletonStatus>
+        <div className="space-y-3">
+          <Skeleton className="h-9 w-24 rounded-btn" />
+          <Skeleton className="h-9 w-80" />
+          <Skeleton className="h-4 w-40" />
+        </div>
+        <Skeleton className="h-16 w-full rounded-card" />
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Skeleton key={i} className="h-32 w-full rounded-card" />
+        ))}
+      </div>
+    )
+  }
+
+  if (loadError || !setData) {
+    return (
+      <div className="p-6 sm:p-8 min-h-screen flex items-center justify-center">
+        <ErrorState
+          title="Failed to load station set"
+          message={loadError ?? undefined}
+          onRetry={() => void loadSet()}
+        />
+      </div>
+    )
   }
 
   return (
@@ -145,104 +198,121 @@ export default function EditStationSetPage() {
         <div>
           <Link href="/ground-stations">
             <Button variant="ghost" className="mb-2">
-              <ArrowLeft className="h-4 w-4 mr-2" />
+              <ArrowLeft className="h-4 w-4 mr-2" aria-hidden="true" />
               Back
             </Button>
           </Link>
 
-          <h1 className="text-3xl font-bold">
+          <h1 className="text-3xl font-bold text-light-text dark:text-dark-text">
             Ground Station Set: {setData.name}
           </h1>
-          <p className="text-sm opacity-60">Contains {setData.stations.length} stations</p>
+          <p className="text-sm text-light-text/60 dark:text-dark-subtext">Contains {setData.stations.length} stations</p>
         </div>
 
         <div className="flex gap-2">
-          <Button variant="outline" onClick={restore}>Restore</Button>
-          <Button onClick={save} disabled={!isValid}>
-            <Save className="h-4 w-4 mr-2" />
-            Save
+          <Button variant="secondary" onClick={restore} disabled={saving} aria-label="Restore unsaved changes">Restore</Button>
+          <Button variant="primary" onClick={save} disabled={!isValid || saving} aria-label="Save station set">
+            <Save className="h-4 w-4 mr-2" aria-hidden="true" />
+            {saving ? 'Saving…' : 'Save'}
           </Button>
         </div>
       </div>
 
       {/* Set name */}
       <div className="mt-6 mb-4">
-        <label className="text-sm font-medium">Name</label>
-        <input
+        <Input
           type="text"
+          label="Name"
           value={setData.name}
           onChange={e => updateSetField('name', e.target.value)}
-          className="w-full mt-1 px-3 py-2 rounded border"
+          error={!setData.name.trim() ? 'Name is required' : undefined}
         />
       </div>
 
       {/* Stations list */}
       <div className="space-y-4 mt-6">
+        {setData.stations.length === 0 && (
+          <EmptyState
+            icon={RadioTower}
+            title="No stations in this set"
+            description="Add a station to define a ground location for GSL generation."
+            action={
+              <Button variant="primary" onClick={addStation}>
+                <Plus className="h-4 w-4 mr-2" aria-hidden="true" />
+                Add Station
+              </Button>
+            }
+          />
+        )}
         {setData.stations.map(station => (
           <motion.div
             key={station.id}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="border p-4 rounded-card bg-light-surface dark:bg-dark-surface"
           >
-            <div className="flex justify-between items-center mb-3">
-              <h3 className="font-semibold">{station.name || "Unnamed Station"}</h3>
-              <Button variant="ghost" size="sm" onClick={() => removeStation(station.id)}>
-                <Trash2 className="h-4 w-4 text-red-500" />
-              </Button>
-            </div>
+            <Card className="p-4">
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="font-semibold text-light-text dark:text-dark-text">{station.name || "Unnamed Station"}</h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => removeStation(station.id)}
+                  aria-label={`Remove station ${station.name || 'unnamed'}`}
+                >
+                  <Trash2 className="h-4 w-4 text-red-500" aria-hidden="true" />
+                </Button>
+              </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div>
-                <label className="text-sm font-medium">Name</label>
-                <input
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <Input
                   type="text"
+                  label="Name"
                   value={station.name}
                   onChange={e => updateStation(station.id, "name", e.target.value)}
-                  className="w-full mt-1 px-2 py-1 rounded border"
+                  error={!station.name.trim() ? 'Name is required' : undefined}
                 />
-              </div>
-
-              <div>
-                <label className="text-sm font-medium">Latitude</label>
-                <input
+                <Input
                   type="number"
+                  label="Latitude"
                   value={station.lat}
                   onChange={e => updateStation(station.id, "lat", parseFloat(e.target.value))}
-                  className="w-full mt-1 px-2 py-1 rounded border"
+                  error={latError(station.lat)}
+                  helperText="-90 to 90"
                 />
-              </div>
-
-              <div>
-                <label className="text-sm font-medium">Longitude</label>
-                <input
+                <Input
                   type="number"
+                  label="Longitude"
                   value={station.lon}
                   onChange={e => updateStation(station.id, "lon", parseFloat(e.target.value))}
-                  className="w-full mt-1 px-2 py-1 rounded border"
+                  error={lonError(station.lon)}
+                  helperText="-180 to 180"
                 />
               </div>
-            </div>
+            </Card>
           </motion.div>
         ))}
       </div>
 
       {/* Add station button */}
-      <div className="mt-6">
-        <Button onClick={addStation}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Station
-        </Button>
-      </div>
+      {setData.stations.length > 0 && (
+        <div className="mt-6">
+          <Button variant="primary" onClick={addStation}>
+            <Plus className="h-4 w-4 mr-2" aria-hidden="true" />
+            Add Station
+          </Button>
+        </div>
+      )}
 
       {/* Unsaved footer */}
       {hasUnsaved && (
-        <div className="fixed bottom-0 left-0 right-0 p-4 border-t bg-light-surface dark:bg-dark-surface">
+        <div className="fixed bottom-0 left-0 right-0 p-4 border-t border-light-border dark:border-dark-border bg-light-surface dark:bg-dark-surface z-40">
           <div className="max-w-[1920px] mx-auto flex justify-between items-center">
-            <span className="text-sm opacity-60">Unsaved changes</span>
+            <span className="text-sm text-light-text/60 dark:text-dark-subtext">Unsaved changes</span>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={restore}>Restore</Button>
-              <Button onClick={save} disabled={!isValid}>Save</Button>
+              <Button variant="secondary" onClick={restore} disabled={saving}>Restore</Button>
+              <Button variant="primary" onClick={save} disabled={!isValid || saving}>
+                {saving ? 'Saving…' : 'Save'}
+              </Button>
             </div>
           </div>
         </div>

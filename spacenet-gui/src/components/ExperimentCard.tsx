@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Edit, Play, MoreVertical, Trash2, Copy } from 'lucide-react'
 import { Button } from './ui/button'
+import { Badge, BadgeVariant } from './ui/badge'
 import { Experiment } from '@/types/types'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
@@ -60,11 +61,11 @@ export function ExperimentCard({ experiment, index, onDelete , onDuplicate, onEd
   }
 
   // Status badge config
-  const statusBadge = hasPhase2
-    ? { dot: 'bg-green-500', label: 'Complete', color: 'text-green-500', pulse: false }
+  const statusBadge: { label: string; variant: BadgeVariant; pulse: boolean } = hasPhase2
+    ? { label: 'Complete', variant: 'success', pulse: false }
     : hasPhase1
-    ? { dot: 'bg-amber-500', label: 'Phase 1 Only', color: 'text-amber-500', pulse: false }
-    : { dot: 'bg-red-400', label: 'No Output', color: 'text-red-400', pulse: true }
+    ? { label: 'Phase 1 Only', variant: 'warning', pulse: false }
+    : { label: 'No Output', variant: 'error', pulse: true }
 
   return (
     <motion.div
@@ -78,10 +79,9 @@ export function ExperimentCard({ experiment, index, onDelete , onDuplicate, onEd
           <h3 className="text-lg font-semibold text-light-text dark:text-dark-text">
             {experiment.name}
           </h3>
-          <div className={`flex items-center ${statusBadge.color}`}>
-            <span className={`w-2 h-2 rounded-full inline-block mr-1.5 ${statusBadge.dot}${statusBadge.pulse ? ' animate-pulse' : ''}`} />
-            <span className="text-xs font-medium">{statusBadge.label}</span>
-          </div>
+          <Badge variant={statusBadge.variant} pulse={statusBadge.pulse}>
+            {statusBadge.label}
+          </Badge>
         </div>
 
         {/* Description */}
@@ -91,12 +91,8 @@ export function ExperimentCard({ experiment, index, onDelete , onDuplicate, onEd
 
         {/* Phase progress */}
         <div className="flex items-center gap-2 mb-3">
-          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${hasPhase1 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500'}`}>
-            Phase 1
-          </span>
-          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${hasPhase2 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500'}`}>
-            Phase 2
-          </span>
+          <Badge variant={hasPhase1 ? 'success' : 'neutral'}>Phase 1</Badge>
+          <Badge variant={hasPhase2 ? 'success' : 'neutral'}>Phase 2</Badge>
         </div>
 
         {/* Tags */}
@@ -121,17 +117,17 @@ export function ExperimentCard({ experiment, index, onDelete , onDuplicate, onEd
             </span>
           )}
           <Link href={`/experiments/${experiment.id}/edit`} className={experiment.created_at ? '' : 'flex-1'}  onClick={(e) => { if (experiment.is_custom){e.preventDefault()}  }}>
-            <Button variant="outline" className={experiment.created_at ? '' : 'w-full'}  disabled={experiment.is_custom} aria-label={`Edit configuration for ${experiment.name}`}>
+            <Button variant="secondary" className={experiment.created_at ? '' : 'w-full'}  disabled={experiment.is_custom} aria-label={`Edit configuration for ${experiment.name}`}>
               <Edit className="h-4 w-4 mr-2" aria-hidden="true" />
               Edit Config
             </Button>
           </Link>
           <Button
-            className={`${!experiment.created_at ? 'flex-1 ' : ''}${true ? 'bg-maroon hover:bg-maroon-hover text-white' : 'bg-gray-400 dark:bg-gray-600 text-white cursor-not-allowed opacity-50'}`}
+            variant="primary"
+            className={!experiment.created_at ? 'flex-1' : undefined}
             onClick={handleRunSimulation}
-            // disabled={!canRunSimulation}
           >
-            <Play className="h-4 w-4 mr-2" />
+            <Play className="h-4 w-4 mr-2" aria-hidden="true" />
             Run Simulation
           </Button>
           <DropdownMenu.Root>

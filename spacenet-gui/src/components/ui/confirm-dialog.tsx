@@ -93,7 +93,7 @@ export function ConfirmDialog({
 
         <div className="flex justify-end gap-3 mt-6">
           <Button
-            variant="outline"
+            variant="secondary"
             onClick={onCancel}
             className="border-light-border dark:border-dark-border text-light-text dark:text-dark-text"
             disabled={isConfirming}
@@ -102,10 +102,8 @@ export function ConfirmDialog({
           </Button>
           <Button
             onClick={onConfirm}
-            className={variant === 'danger'
-              ? 'bg-red-600 hover:bg-red-700 text-white'
-              : 'bg-amber-600 hover:bg-amber-700 text-white'
-            }
+            variant={variant === 'danger' ? 'danger' : 'primary'}
+            className={variant === 'warning' ? 'bg-amber-600 hover:bg-amber-700 text-white' : undefined}
             disabled={isConfirming}
             ref={confirmButtonRef}
           >

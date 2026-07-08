@@ -42,28 +42,28 @@ export function ExperimentEditHeader({
         </p>
       </div>
       <div className="flex items-center gap-2">
-        {/* <Button variant="outline" onClick={onImportYAML}>
+        {/* <Button variant="secondary" onClick={onImportYAML}>
           <Upload className="h-4 w-4 mr-2" />
           Import YAML
         </Button> */}
-        <Button variant="outline" onClick={onExportYAML}>
+        <Button variant="secondary" onClick={onExportYAML}>
           <Download className="h-4 w-4 mr-2" />
           Export YAML
         </Button>
-        <Button variant="outline" onClick={onRestore} disabled={saving}>
+        <Button variant="secondary" onClick={onRestore} disabled={saving}>
           <X className="h-4 w-4 mr-2" />
           Restore Changes
         </Button>
-        <Button variant="outline" onClick={onSave} disabled={saving}>
+        <Button variant="secondary" onClick={onSave} disabled={saving}>
           <Save className="h-4 w-4 mr-2" />
           {saving ? 'Saving...' : 'Save Configuration'}
         </Button>
         <Button
-          className="bg-orange-500 hover:bg-orange-600 text-white"
+          className="bg-vt-orange hover:bg-vt-orange-hover active:bg-vt-orange-pressed text-white"
           onClick={onSaveAndRun}
           disabled={saving || savingAndRunning}
         >
-          <Play className="h-4 w-4 mr-2" />
+          <Play className="h-4 w-4 mr-2" aria-hidden="true" />
           {savingAndRunning ? 'Saving...' : 'Save & Run Simulation'}
         </Button>
         <Link href="/experiments" aria-label="Back to experiments">

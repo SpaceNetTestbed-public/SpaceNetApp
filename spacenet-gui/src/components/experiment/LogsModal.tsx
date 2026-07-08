@@ -27,7 +27,7 @@ export function LogsModal({ isOpen, phase, logs, loading, onClose }: LogsModalPr
           {loading ? 'Loading logs…' : logs}
         </pre>
         <div className="flex justify-end mt-4">
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="secondary" onClick={onClose}>
             Close
           </Button>
         </div>

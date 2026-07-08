@@ -23,7 +23,7 @@ export function HomeNavbar() {
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-2xl bg-maroon flex items-center justify-center">
+            <div className="h-10 w-10 rounded-2xl bg-vt-maroon flex items-center justify-center">
               <div className="text-white text-lg font-bold">SN</div>
             </div>
             <span className="text-lg font-semibold text-black dark:text-white">SpaceNet Testbed</span>
@@ -33,7 +33,7 @@ export function HomeNavbar() {
           <div className="flex items-center gap-4">
             <ThemeToggle className="text-black hover:text-black/80 dark:text-white dark:hover:text-white/80" />
             <Link href="/experiments">
-              <Button className="bg-maroon hover:bg-maroon-hover text-white">
+              <Button className="bg-vt-maroon hover:bg-vt-maroon-hover text-white">
                 Open App
               </Button>
             </Link>

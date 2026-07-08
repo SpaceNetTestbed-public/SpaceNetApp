@@ -35,14 +35,14 @@ export default function AppError({
         )}
         <div className="flex flex-col sm:flex-row gap-2 justify-center">
           <Link href="/experiments">
-            <Button variant="outline" className="w-full sm:w-auto">
+            <Button variant="secondary" className="w-full sm:w-auto">
               <Home className="h-4 w-4 mr-2" aria-hidden="true" />
               Back to experiments
             </Button>
           </Link>
           <Button
             onClick={reset}
-            className="bg-maroon hover:bg-maroon-hover text-white w-full sm:w-auto"
+            className="bg-vt-maroon hover:bg-vt-maroon-hover text-white w-full sm:w-auto"
           >
             <RefreshCw className="h-4 w-4 mr-2" aria-hidden="true" />
             Try again

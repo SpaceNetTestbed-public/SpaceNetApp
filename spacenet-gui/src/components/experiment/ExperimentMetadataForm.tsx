@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion'
 import { useState } from 'react'
+import { Input, Textarea } from '@/components/ui/input'
 
 interface ExperimentMetadataFormProps {
   experimentName: string
@@ -53,59 +54,46 @@ export function ExperimentMetadataForm({
         Profile Metadata
       </h2>
       <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-light-text dark:text-dark-text mb-1.5">
-            Experiment Name <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="text"
-            value={experimentName}
-            onChange={(e) => onExperimentNameChange(e.target.value)}
-            className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-light-text dark:text-dark-text mb-1.5">
-            Description
-          </label>
-          <textarea
-            value={description}
-            onChange={(e) => onDescriptionChange(e.target.value)}
-            rows={3}
-            className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50 resize-none"
-          />
-        </div>
+        <Input
+          type="text"
+          label={<>Experiment Name <span className="text-red-500" aria-hidden="true">*</span></>}
+          value={experimentName}
+          onChange={(e) => onExperimentNameChange(e.target.value)}
+          error={!experimentName.trim() ? 'Experiment name is required' : undefined}
+          required
+          className="bg-light-bg dark:bg-dark-bg"
+        />
+        <Textarea
+          label="Description"
+          value={description}
+          onChange={(e) => onDescriptionChange(e.target.value)}
+          rows={3}
+          className="bg-light-bg dark:bg-dark-bg resize-none"
+        />
         {/* Tag */}
         <div>
-        <label className="block text-sm font-medium mb-1 text-light-text dark:text-dark-text">
-          Tag
-        </label>
-
         <div className="flex flex-wrap gap-2 mb-2">
           {tags.map((tag) => (
-            <span
+            <button
               key={tag}
-              className="px-2 py-1 bg-maroon/20 text-maroon rounded-full text-sm cursor-pointer"
+              type="button"
+              aria-label={`Remove tag ${tag}`}
+              className="px-2 py-1 bg-vt-maroon/20 text-vt-maroon rounded-full text-sm cursor-pointer hover:bg-vt-maroon/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               onClick={() => removeTag(tag)}
             >
               {tag} ×
-            </span>
+            </button>
           ))}
         </div>
 
-        <input
+        <Input
           type="text"
+          label="Tag"
           value={newTag}
           onChange={(e) => setNewTag(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Type a tag and press Enter"
-          className="
-            w-full px-3 py-2 rounded-btn font-mono text-sm
-            border border-light-border dark:border-dark-border
-            bg-light-bg dark:bg-dark-bg
-            text-light-text dark:text-dark-text
-            focus:outline-none focus:ring-2 focus:ring-maroon/50
-          "
+          className="font-mono bg-light-bg dark:bg-dark-bg"
         />
       </div>
       </div>

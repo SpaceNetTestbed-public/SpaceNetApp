@@ -40,7 +40,17 @@ def process_config(experiment_id):
                 shutil.rmtree(folder)
             # Example: generate folder / run phase_1
             # logs += generate_random_text_folder(f"users/{username}/{experiment_name}/output/") + "\n"
-            logs += run_phase_1(experiment_id)
+            phase_logs, return_code = run_phase_1(experiment_id)
+            logs += phase_logs
+            # The simulator can partially fail (e.g. a worker thread crashes)
+            # yet still leave a half-populated output folder behind. If we
+            # don't check the exit code here we'd zip that partial output and
+            # wrongly report success — hiding the failure from the user.
+            if return_code != 0:
+                raise RuntimeError(
+                    f"Phase 1 simulator exited with code {return_code}. "
+                    f"The run did not complete — see the log above for the traceback."
+                )
 
             zip_path = zip_folder(f"local_workspace/{experiment_id}/output")
             logs += f"✅ Folder zipped to: {zip_path}\n"
@@ -215,7 +225,7 @@ def run_phase_1(experiment_id):
 
     process.wait()
     logs += f"\n--- Phase_1 finished with code {process.returncode} ---\n"
-    return logs
+    return logs, process.returncode
     
 # -------------------------
 # PHASE 1 output (External command)
@@ -245,7 +255,7 @@ def create_gif(experiment_id, gif_name):
 
     process.wait()
     logs += f"\n--- Gif Maker finished with code {process.returncode} ---\n"
-    return logs
+    return logs, process.returncode
 
 # -------------------------
 # PHASE 2 (External command)
@@ -275,7 +285,7 @@ def run_phase_2(experiment_id):
 
     process.wait()
     logs += f"\n--- Phase_2 finished with code {process.returncode} ---\n"
-    return logs
+    return logs, process.returncode
 
 
 # -------------------------
