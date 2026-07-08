@@ -17,7 +17,7 @@ export default function RootLayout({ children }:{children:React.ReactNode}) {
       <body suppressHydrationWarning className={`${inter.variable} font-inter bg-light-bg text-light-text dark:bg-dark-bg dark:text-dark-text`}>
         <a
           href="#main-content"
-          className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-vt-maroon focus:text-white focus:rounded-md focus:outline-none"
+          className="fixed left-[-9999px] top-4 z-50 px-4 py-2 bg-red-800 text-white rounded-md focus:left-4 outline-none"
         >
           Skip to main content
         </a>
