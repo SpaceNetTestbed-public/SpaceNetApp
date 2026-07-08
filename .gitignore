@@ -1,0 +1,52 @@
+# Root-level ignores. Each subproject (spacenet-gui, spacenet-backend) also
+# has its own .gitignore for language- and framework-specific patterns.
+
+# ---- Secrets ------------------------------------------------------------
+# Never commit real environment files. Track only the sanitized example.
+.env
+.env.*
+!.env.example
+
+# ---- OS / editor cruft --------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+*~
+
+# ---- IDE / editor -------------------------------------------------------
+.idea/
+.vscode/
+*.iml
+
+# ---- Node / Next.js -----------------------------------------------------
+node_modules/
+.next/
+out/
+
+# ---- Python -------------------------------------------------------------
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+env/
+
+# ---- Runtime data & DBs -------------------------------------------------
+local_workspace/
+*.db
+*.sqlite
+*.sqlite3
+
+# ---- Logs ---------------------------------------------------------------
+*.log
+logs/
+
+# ---- Coverage & test artifacts ------------------------------------------
+coverage/
+.pytest_cache/
+.jest-cache/
+playwright-report/
+test-results/
