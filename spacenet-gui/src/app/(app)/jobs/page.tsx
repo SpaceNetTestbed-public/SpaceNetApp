@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, Search, FileText, CheckCircle2, Clock, PlayCircle, XCircle, Loader2, type LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -8,6 +8,7 @@ import { apiFetch } from '@/lib/api'
 import { getApiErrorMessage } from '@/lib/utils'
 import { toast } from 'sonner'
 import { motion } from 'framer-motion'
+import { useJobPolling } from '@/hooks/useJobPolling'
 
 interface JobStatusBadgeEntry {
   bg: string
@@ -54,35 +55,38 @@ export default function JobQueuePage() {
   const [loadingLogsJobId, setLoadingLogsJobId] = useState<string | null>(null)
   const [cancelingJobId, setCancelingJobId] = useState<string | null>(null)
 
-  // Fetch queue items on mount & poll every 5s
+  // Fetch queue items on mount & poll every 5s (pauses while the tab is hidden)
+  const isMountedRef = useRef(true)
   useEffect(() => {
-    let isMounted = true
-
-    const fetchJobs = async (isFirst: boolean) => {
-      if (isFirst) setLoadingQueue(true)
-      try {
-        const data = await apiFetch('/jobs') as JobItem[]
-        if (isMounted) setJobs(data)
-      } catch (err) {
-        if (isFirst) {
-          console.error(err)
-          toast.error(getApiErrorMessage(err, 'Failed to load job queue'), { id: 'jobs-queue-load' })
-          if (isMounted) setJobs([])
-        }
-        // poll failures are silently ignored
-      } finally {
-        if (isFirst && isMounted) setLoadingQueue(false)
-      }
-    }
-
-    fetchJobs(true)
-    const interval = setInterval(() => fetchJobs(false), 5000)
-
+    isMountedRef.current = true
     return () => {
-      isMounted = false
-      clearInterval(interval)
+      isMountedRef.current = false
     }
   }, [])
+
+  const fetchJobs = async (isFirst: boolean) => {
+    if (isFirst) setLoadingQueue(true)
+    try {
+      const data = await apiFetch('/jobs') as JobItem[]
+      if (isMountedRef.current) setJobs(data)
+    } catch (err) {
+      if (isFirst) {
+        console.error(err)
+        toast.error(getApiErrorMessage(err, 'Failed to load job queue'), { id: 'jobs-queue-load' })
+        if (isMountedRef.current) setJobs([])
+      }
+      // poll failures are silently ignored
+    } finally {
+      if (isFirst && isMountedRef.current) setLoadingQueue(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchJobs(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useJobPolling(() => fetchJobs(false), { intervalMs: 5000 })
 
   const filteredJobs = useMemo(() => {
     // Sort oldest → newest
