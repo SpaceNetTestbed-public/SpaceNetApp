@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Download, X, Play, SlidersHorizontal, Orbit, Loader2, AlertTriangle } from 'lucide-react'
+import { Download, X, Play, SlidersHorizontal, Orbit, Loader2, AlertTriangle, XCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -23,6 +23,8 @@ interface VisualizationPanelProps {
   /** Shown when visualization fails or times out */
   vizError?: string | null
   onCreateGif: () => void
+  /** Cancel the in-flight plot job — only passed while one is running */
+  onCancel?: () => void
   onDownload: () => void
   shellColorOptions: string[]
 }
@@ -62,6 +64,7 @@ export function VisualizationPanel({
   isGenerating = false,
   vizError = null,
   onCreateGif,
+  onCancel,
   onDownload,
   shellColorOptions,
 }: VisualizationPanelProps) {
@@ -105,6 +108,17 @@ export function VisualizationPanel({
                 Building the 3D plot from Phase 1 output. This usually takes under a minute.
               </p>
             </div>
+            {onCancel && (
+              <Button
+                variant="secondary"
+                onClick={onCancel}
+                className="text-red-600 dark:text-red-400 border-red-200 dark:border-red-900/50"
+                aria-label="Cancel visualization"
+              >
+                <XCircle className="h-4 w-4 mr-2" aria-hidden="true" />
+                Cancel
+              </Button>
+            )}
           </div>
         ) : vizError ? (
           <EmptyState
@@ -214,6 +228,17 @@ export function VisualizationPanel({
               </>
             )}
           </Button>
+          {isGenerating && onCancel && (
+            <Button
+              variant="secondary"
+              className="w-full text-red-600 dark:text-red-400 border-red-200 dark:border-red-900/50"
+              onClick={onCancel}
+              aria-label="Cancel visualization"
+            >
+              <XCircle className="h-4 w-4 mr-2" aria-hidden="true" />
+              Cancel
+            </Button>
+          )}
           {hasOutput && (
             <Button variant="secondary" className="w-full" onClick={onDownload}>
               <Download className="h-4 w-4 mr-2" aria-hidden="true" />

@@ -165,7 +165,10 @@ export default function SimulationPage() {
   const [timeStepIndex, setTimeStepIndex] = useState(0)
   const [shellNames, setShellNames] = useState<string[]>([])
   const [shellColors, setShellColors] = useState<Record<string, string>>({})
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  // Phase runs and globe/GIF generation are independent pipelines — track
+  // them separately so a rendering globe never disables the Run Phase buttons.
+  const [isPhaseSubmitting, setIsPhaseSubmitting] = useState(false)
+  const [isVizGenerating, setIsVizGenerating] = useState(false)
 
   /* ----------------------------- Phase Polling ----------------------------- */
   const [pollingPhase, setPollingPhase] = useState<1 | 2 | null>(null)
@@ -188,6 +191,8 @@ export default function SimulationPage() {
   const [vizError, setVizError] = useState<string | null>(null)
   /** Prevents double auto-launch of the globe renderer on mount + phase complete */
   const vizAutoTriggeredRef = useRef(false)
+  /** RQ job id of the in-flight globe render, used by the viz Cancel button */
+  const gifJobIdRef = useRef<string | null>(null)
   const triggerVisualizationRef = useRef<(auto?: boolean) => void>(() => {})
 
   /* ----------------------------- Logs ----------------------------- */
@@ -301,7 +306,8 @@ export default function SimulationPage() {
       const res = await fetch(`${API_URL}/experiments/${id}/gifs/output/file`)
       if (res.ok) {
         setIsGifPolling(false)
-        setIsSubmitting(false)
+        setIsVizGenerating(false)
+        gifJobIdRef.current = null
         setVizError(null)
         setLiveMessage('Visualization ready')
         await fetchOutput()
@@ -309,7 +315,8 @@ export default function SimulationPage() {
       }
       if (attempts >= 60) {
         setIsGifPolling(false)
-        setIsSubmitting(false)
+        setIsVizGenerating(false)
+        gifJobIdRef.current = null
         const message =
           'Visualization timed out. Phase 1 output may be incomplete — open Phase 1 Logs or re-run Phase 1, then try again.'
         setVizError(message)
@@ -318,7 +325,8 @@ export default function SimulationPage() {
     } catch {
       if (attempts >= 60) {
         setIsGifPolling(false)
-        setIsSubmitting(false)
+        setIsVizGenerating(false)
+        gifJobIdRef.current = null
         setVizError('Visualization failed — check the Jobs page for errors.')
         setLiveMessage('Visualization generation timed out')
       }
@@ -521,7 +529,7 @@ export default function SimulationPage() {
 
   /* ----------------------------- Run visualization ----------------------------- */
   const triggerVisualization = useCallback(async (auto = false) => {
-    if (isSubmitting || isGifPolling) return
+    if (isVizGenerating || isGifPolling) return
     if (shellNames.length === 0 || timeSteps.length === 0) return
 
     if (auto) {
@@ -529,13 +537,44 @@ export default function SimulationPage() {
       vizAutoTriggeredRef.current = true
     }
 
-    setIsSubmitting(true)
+    setIsVizGenerating(true)
     setVizError(null)
     setHasOutput(false)
     setOutputChecked(false)
     setLiveMessage('Generating visualization')
+
+    // If a globe job for this experiment is already queued or running
+    // (auto-launch raced a manual click, or the page was reloaded mid-render),
+    // attach to it instead of enqueuing a duplicate.
     try {
-      await apiFetch(`/experiments/${id}/create-gif`, {
+      const jobs = await apiFetch('/jobs') as Array<{
+        job_id: string
+        experiment_id?: number | string | null
+        phase?: string | null
+        gif_name?: string | null
+        status: string
+      }>
+      // gif_name distinguishes the globe render ('output') from the animated
+      // GIF job ('output-gif') that gets queued behind every Phase 1 run.
+      const activeGifJob = jobs.find(j =>
+        String(j.experiment_id) === String(id) &&
+        j.phase === 'gif' &&
+        j.gif_name === 'output' &&
+        (j.status === 'queued' || j.status === 'started')
+      )
+      if (activeGifJob) {
+        gifJobIdRef.current = activeGifJob.job_id
+        gifPollAttemptsRef.current = 0
+        setIsGifPolling(true)
+        return
+      }
+    } catch {
+      // /jobs being briefly unreachable shouldn't block the render — fall
+      // through and let the create-gif POST surface any real error.
+    }
+
+    try {
+      const result = await apiFetch(`/experiments/${id}/create-gif`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -552,11 +591,13 @@ export default function SimulationPage() {
           long: 0,
           shells: shellColors,
         }),
-      })
+      }) as PhaseStartResponse
+      gifJobIdRef.current = result?.job_id ?? null
     } catch (err) {
       const message = getApiErrorMessage(err, 'Failed to generate visualization')
       setVizError(message)
-      setIsSubmitting(false)
+      setIsVizGenerating(false)
+      setOutputChecked(true)
       if (!auto) {
         toast.error(message, { id: 'experiment-output-generate' })
       }
@@ -567,7 +608,7 @@ export default function SimulationPage() {
   }, [
     id,
     isGifPolling,
-    isSubmitting,
+    isVizGenerating,
     shellColors,
     shellNames.length,
     timeStepIndex,
@@ -578,7 +619,7 @@ export default function SimulationPage() {
 
   // After Phase 1 output exists, auto-render the globe once config is loaded.
   useEffect(() => {
-    if (!hasPhase1 || !outputChecked || hasOutput || isGifPolling || isSubmitting) return
+    if (!hasPhase1 || !outputChecked || hasOutput || isGifPolling || isVizGenerating) return
     if (shellNames.length === 0 || timeSteps.length === 0) return
     void triggerVisualization(true)
   }, [
@@ -586,7 +627,7 @@ export default function SimulationPage() {
     outputChecked,
     hasOutput,
     isGifPolling,
-    isSubmitting,
+    isVizGenerating,
     shellNames.length,
     timeSteps.length,
     triggerVisualization,
@@ -599,7 +640,7 @@ export default function SimulationPage() {
 
   const handleCreateAniGif = async () => {
     try {
-      setIsSubmitting(true)
+      setIsVizGenerating(true)
       await apiFetch(`/experiments/${id}/create-gif`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -621,7 +662,7 @@ export default function SimulationPage() {
     } catch (err) {
       toast.error(getApiErrorMessage(err, 'Failed to generate output'), { id: 'experiment-output-generate' })
     } finally {
-      setIsSubmitting(false)
+      setIsVizGenerating(false)
     }
   }
 
@@ -641,10 +682,12 @@ export default function SimulationPage() {
       vizAutoTriggeredRef.current = false
       setVizError(null)
     }
+    let phaseStarted = false
     try{
-      setIsSubmitting(true)
+      setIsPhaseSubmitting(true)
       const result = await apiFetch(`/experiments/${id}/phase-${phase}`, {method:'POST'}) as PhaseStartResponse
       trackedJobIdRef.current = result?.job_id ?? null
+      phaseStarted = true
       toast.success(`Phase ${phase} started`)
       if (trackedJobIdRef.current) {
         startPhasePolling(phase)
@@ -656,28 +699,34 @@ export default function SimulationPage() {
       console.error(err)
       toast.error(getApiErrorMessage(err, `Failed to start Phase ${phase}`), { id: `experiment-phase-start-${phase}` })
     }finally{
-      setIsSubmitting(false)
+      setIsPhaseSubmitting(false)
     }
 
-    if (phase === 1) {
-      await apiFetch(`/experiments/${id}/create-gif`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          gif_name: 'output-gif',
-          plot_GSs: true,
-          make_gif: true,
-          plot_in_3D: true,
-          plot_debug: false,
-          plot_only_optimal: false,
-          plot_optimal_orbits: false,
-          center_gif: true,
-          time_step: 0,
-          lat: 0,
-          long: 0,
-          shells: shellColors,
-        }),
-      })
+    if (phase === 1 && phaseStarted) {
+      // Queue the animated GIF behind Phase 1 on the same worker queue.
+      // It's a nice-to-have — its failure must not read as a Phase 1 failure.
+      try {
+        await apiFetch(`/experiments/${id}/create-gif`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            gif_name: 'output-gif',
+            plot_GSs: true,
+            make_gif: true,
+            plot_in_3D: true,
+            plot_debug: false,
+            plot_only_optimal: false,
+            plot_optimal_orbits: false,
+            center_gif: true,
+            time_step: 0,
+            lat: 0,
+            long: 0,
+            shells: shellColors,
+          }),
+        })
+      } catch (err) {
+        console.error('Failed to queue animated GIF job', err)
+      }
     }
   }
 
@@ -692,6 +741,26 @@ export default function SimulationPage() {
       setLiveMessage(`Phase ${pollingPhase} cancelled`)
     } catch (err) {
       toast.error(getApiErrorMessage(err, 'Failed to cancel job'), { id: 'experiment-phase-cancel' })
+    }
+  }
+
+  /* ----------------------------- Cancel running visualization ----------------------------- */
+  const cancelVisualization = async () => {
+    const jobId = gifJobIdRef.current
+    if (!jobId) return
+    try {
+      await apiFetch(`/jobs/${jobId}/cancel`, { method: 'DELETE' })
+      gifJobIdRef.current = null
+      setIsGifPolling(false)
+      setIsVizGenerating(false)
+      // Keep vizAutoTriggeredRef set so the auto-launch effect doesn't
+      // immediately re-queue the job the user just cancelled.
+      vizAutoTriggeredRef.current = true
+      setOutputChecked(true)
+      toast.info('Visualization cancelled')
+      setLiveMessage('Visualization cancelled')
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Failed to cancel visualization'), { id: 'experiment-viz-cancel' })
     }
   }
 
@@ -744,7 +813,7 @@ export default function SimulationPage() {
           id={id}
           phase={1}
           hasOutput={hasPhase1}
-          isSubmitting={isSubmitting}
+          isSubmitting={isPhaseSubmitting}
           canRun={true}
           isPolling={pollingPhase === 1}
           progress={pollingPhase === 1 ? phaseProgress : null}
@@ -761,7 +830,7 @@ export default function SimulationPage() {
           id={id}
           phase={2}
           hasOutput={hasPhase2}
-          isSubmitting={isSubmitting}
+          isSubmitting={isPhaseSubmitting}
           canRun={hasPhase1}
           isPolling={pollingPhase === 2}
           progress={pollingPhase === 2 ? phaseProgress : null}
@@ -792,10 +861,11 @@ export default function SimulationPage() {
           shellNames={shellNames}
           shellColors={shellColors}
           onShellColorChange={(shell, color) => setShellColors((prev) => ({ ...prev, [shell]: color }))}
-          isSubmitting={isSubmitting}
-          isGenerating={isSubmitting || isGifPolling}
+          isSubmitting={isVizGenerating}
+          isGenerating={isVizGenerating || isGifPolling}
           vizError={vizError}
           onCreateGif={handleCreateGif}
+          onCancel={isGifPolling ? cancelVisualization : undefined}
           onDownload={handleDownload}
           shellColorOptions={SHELL_COLORS}
         />

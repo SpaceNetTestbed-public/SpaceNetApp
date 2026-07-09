@@ -2,7 +2,7 @@
 
 import { SatConfig, ShellConfig } from '@/types/experiment-config'
 import { ShellEditor } from './ShellEditor'
-import { Plus } from 'lucide-react'
+import { AlertTriangle, Plus } from 'lucide-react'
 import { Button } from '../ui/button'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
@@ -274,6 +274,15 @@ export function SatConfigForm({ config, onChange, tleLocked = false }: SatConfig
               ))}
             </select>
           </div>
+          {config.generate_TLE === false && (
+            <p className="text-[11px] text-amber-600 dark:text-amber-400 flex items-start gap-1 font-medium" role="status">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" aria-hidden="true" />
+              TLE generation is disabled for this experiment — Phase 1 will load a real
+              TLE file instead of generating orbits from the shells below. If the TLE
+              file&apos;s satellite count doesn&apos;t match the shell configuration, the run
+              will fail.
+            </p>
+          )}
         </div>
       </div>
 

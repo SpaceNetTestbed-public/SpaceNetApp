@@ -1,4 +1,4 @@
-import { generateSatYAML, generateMainYAML } from '@/lib/yaml'
+import { generateSatYAML, generateMainYAML, shellsToNamedRecord } from '@/lib/yaml'
 import { defaultSatConfig, defaultMainConfig } from '@/types/experiment-config'
 import type { SatConfig, MainConfig } from '@/types/experiment-config'
 
@@ -18,7 +18,7 @@ describe('generateSatYAML', () => {
 
   it('emits generate_TLE and TLEFilePath', () => {
     const yaml = generateSatYAML(defaultSatConfig)
-    expect(yaml).toContain('generate_TLE: false')
+    expect(yaml).toContain('generate_TLE: true')
     expect(yaml).toContain('TLEFilePath:')
   })
 
@@ -82,6 +82,34 @@ describe('generateSatYAML', () => {
     expect(yaml).toContain('shell2:')
     expect(yaml).toContain('name: alpha')
     expect(yaml).toContain('name: beta')
+  })
+})
+
+describe('shellsToNamedRecord', () => {
+  it('keys an array of shells as shell1, shell2, …', () => {
+    const shells = [
+      { ...defaultSatConfig.shells[0], name: 'alpha' },
+      { ...defaultSatConfig.shells[0], name: 'beta' },
+    ]
+    const record = shellsToNamedRecord(shells)
+    expect(Object.keys(record)).toEqual(['shell1', 'shell2'])
+    expect(record.shell1.name).toBe('alpha')
+    expect(record.shell2.name).toBe('beta')
+  })
+
+  it('re-keys a numeric-keyed record to shellN names', () => {
+    // Older saves produced {"0": …, "1": …} — the simulator hardcodes shell1.
+    const record = shellsToNamedRecord({
+      '0': { ...defaultSatConfig.shells[0], name: 'alpha' },
+      '1': { ...defaultSatConfig.shells[0], name: 'beta' },
+    })
+    expect(Object.keys(record)).toEqual(['shell1', 'shell2'])
+    expect(record.shell1.name).toBe('alpha')
+  })
+
+  it('returns an empty record for null/undefined shells', () => {
+    expect(shellsToNamedRecord(null)).toEqual({})
+    expect(shellsToNamedRecord(undefined)).toEqual({})
   })
 })
 

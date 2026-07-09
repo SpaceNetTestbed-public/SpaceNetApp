@@ -7,6 +7,16 @@ function normalizeShells(shells: ShellsInput): ShellConfig[] {
   return Array.isArray(shells) ? shells : Object.values(shells)
 }
 
+/**
+ * The simulators require shellN keys ("shell1", "shell2", …) — Phase 1
+ * hardcodes "shell1". Never emit array indices ("0", "1", …) as shell names.
+ */
+export function shellsToNamedRecord(shells: ShellsInput): Record<string, ShellConfig> {
+  return Object.fromEntries(
+    normalizeShells(shells).map((shell, i) => [`shell${i + 1}`, shell])
+  )
+}
+
 export function generateSatYAML(
   sat: ExperimentConfig['satConfig'],
   options?: {
