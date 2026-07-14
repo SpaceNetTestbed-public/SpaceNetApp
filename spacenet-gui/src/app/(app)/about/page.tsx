@@ -58,7 +58,7 @@ export default function AboutPage() {
         </h1>
         <p className="text-lg text-light-text/80 dark:text-dark-subtext max-w-3xl mx-auto">
           A production-grade simulation platform for LEO satellite constellation network analysis,
-          developed under Virginia Tech's Aerospace & Ocean Engineering department.
+          {" developed under Virginia Tech's Aerospace & Ocean Engineering department."}
         </p>
       </motion.div>
 
