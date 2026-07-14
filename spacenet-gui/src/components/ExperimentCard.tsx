@@ -121,8 +121,8 @@ export function ExperimentCard({ experiment, index, onDelete , onDuplicate, onEd
             </span>
           )}
           <Link href={`/experiments/${experiment.id}/edit`} className={experiment.created_at ? '' : 'flex-1'}  onClick={(e) => { if (experiment.is_custom){e.preventDefault()}  }}>
-            <Button variant="outline" className={experiment.created_at ? '' : 'w-full'}  disabled={experiment.is_custom}>
-              <Edit className="h-4 w-4 mr-2" />
+            <Button variant="outline" className={experiment.created_at ? '' : 'w-full'}  disabled={experiment.is_custom} aria-label={`Edit configuration for ${experiment.name}`}>
+              <Edit className="h-4 w-4 mr-2" aria-hidden="true" />
               Edit Config
             </Button>
           </Link>
@@ -136,8 +136,8 @@ export function ExperimentCard({ experiment, index, onDelete , onDuplicate, onEd
           </Button>
           <DropdownMenu.Root>
             <DropdownMenu.Trigger asChild>
-              <Button variant="ghost" className="h-9 w-9 p-0" aria-label="Open experiment actions">
-                <MoreVertical className="h-4 w-4" />
+              <Button variant="ghost" className="h-9 w-9 p-0" aria-label={`Open actions for ${experiment.name}`}>
+                <MoreVertical className="h-4 w-4" aria-hidden="true" />
               </Button>
             </DropdownMenu.Trigger>
 
@@ -150,22 +150,25 @@ export function ExperimentCard({ experiment, index, onDelete , onDuplicate, onEd
               <DropdownMenu.Item
                 className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer rounded-md"
                 onClick={() => onEdit(experiment)}
+                aria-label={`Edit ${experiment.name}`}
               >
-                <Edit className="h-4 w-4" />
+                <Edit className="h-4 w-4" aria-hidden="true" />
                 Edit
               </DropdownMenu.Item>
               <DropdownMenu.Item
                 className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer rounded-md"
                 onClick={() => handleDuplicateExperiment()}
+                aria-label={`Duplicate ${experiment.name}`}
               >
-                <Copy className="h-4 w-4" />
+                <Copy className="h-4 w-4" aria-hidden="true" />
                 Duplicate
               </DropdownMenu.Item>
               <DropdownMenu.Item
                 className="flex items-center gap-2 px-4 py-2 text-sm text-red-500 hover:bg-red-100 dark:hover:bg-red-900 cursor-pointer rounded-md"
                 onClick={() => setShowDeleteConfirm(true)}
+                aria-label={`Delete ${experiment.name}`}
               >
-                <Trash2 className="h-4 w-4" />
+                <Trash2 className="h-4 w-4" aria-hidden="true" />
                 Delete
               </DropdownMenu.Item>
             </DropdownMenu.Content>

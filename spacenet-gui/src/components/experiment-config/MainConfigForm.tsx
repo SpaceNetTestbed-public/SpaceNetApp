@@ -85,16 +85,14 @@ export function MainConfigForm({ config, onChange }: MainConfigFormProps) {
   const handleIstnToggle = (enabled: boolean) => {
     setIstnEnabled(enabled)
     if (enabled) {
-      updateField('TopoCrit', 2) // Default to "Both"
-      // Initialize Azure and WonderProxy if they don't exist
-      if (!config.Azure) {
-        updateField('Azure', { t2t_use_azure: false })
-      }
-      if (!config.WonderProxy) {
-        updateField('WonderProxy', { t2t_use_wonderproxy: false })
-      }
+      // Batch all changes into a single onChange call so earlier fields are
+      // not overwritten by later updateField calls sharing the same stale config.
+      const updates: Partial<MainConfig> = { TopoCrit: 2 }
+      if (!config.Azure) updates.Azure = { t2t_use_azure: false }
+      if (!config.WonderProxy) updates.WonderProxy = { t2t_use_wonderproxy: false }
+      onChange({ ...config, ...updates })
     } else {
-      updateField('TopoCrit', 0) // ISL only
+      onChange({ ...config, TopoCrit: 0 })
       setAzureChecked(false)
       setWonderProxyChecked(false)
       setIstnError('')
@@ -355,15 +353,17 @@ export function MainConfigForm({ config, onChange }: MainConfigFormProps) {
           <h3 className="text-lg font-semibold text-light-text dark:text-dark-text mb-2">
             Terrestrial Integration (ISTN)
           </h3>
-          <p className="text-xs text-light-text/60 dark:text-dark-subtext mb-4">
-            0 = pure satellite routing, 1 = terrestrial integration only, 2 = combined.
-          </p>
         </div>
 
         <div className="flex items-center justify-between mb-4">
-          <label className="text-sm font-medium text-light-text dark:text-dark-text">
-            ISTN Enabled
-          </label>
+          <div>
+            <label className="text-sm font-medium text-light-text dark:text-dark-text">
+              ISTN Enabled
+            </label>
+            <p className="text-xs text-light-text/60 dark:text-dark-subtext mt-1">
+              When enabled, routes traffic through terrestrial providers (Azure, WonderProxy) alongside satellite inter-satellite links.
+            </p>
+          </div>
           <label className="relative inline-flex items-center cursor-pointer">
             <input
               type="checkbox"

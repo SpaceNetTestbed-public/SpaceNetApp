@@ -14,10 +14,16 @@ export const metadata = {
 export default function RootLayout({ children }:{children:React.ReactNode}) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.variable} font-inter bg-light-bg text-light-text dark:bg-dark-bg dark:text-dark-text`}>
+      <body suppressHydrationWarning className={`${inter.variable} font-inter bg-light-bg text-light-text dark:bg-dark-bg dark:text-dark-text`}>
+        <a
+          href="#main-content"
+          className="fixed left-[-9999px] top-4 z-50 px-4 py-2 bg-red-800 text-white rounded-md focus:left-4 outline-none"
+        >
+          Skip to main content
+        </a>
         <Providers>
           <ConditionalHeader />
-          <main>{children}</main>
+          <main id="main-content">{children}</main>
           <ToasterProvider />
         </Providers>
       </body>

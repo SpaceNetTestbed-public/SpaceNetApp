@@ -31,9 +31,8 @@ export function ShellEditor({ shell, index, onChange, onRemove, canRemove }: She
     onChange(index, { ...shell, [field]: value })
   }
 
-  if (!shell.perturber) {
-    shell.perturber = 'None'
-  }
+  // Derive a safe default without mutating the prop.
+  const perturber: ShellConfig['perturber'] = shell.perturber ?? 'None'
 
   return (
     <div className="border border-light-border dark:border-dark-border rounded-card bg-light-surface dark:bg-dark-surface">
@@ -66,7 +65,7 @@ export function ShellEditor({ shell, index, onChange, onRemove, canRemove }: She
               min={MIN_ORBITS}
               max={MAX_ORBITS}
               value={shell.orbits}
-              onChange={(e) => updateField('orbits', parseInt(e.target.value) || 0)}
+              onChange={(e) => updateField('orbits', parseInt(e.target.value) || 1)}
               className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
             />
           </div>
@@ -80,7 +79,7 @@ export function ShellEditor({ shell, index, onChange, onRemove, canRemove }: She
               min={MIN_SATS_PER_ORBIT}
               max={MAX_SATS_PER_ORBIT}
               value={shell.sat_per_orbit}
-              onChange={(e) => updateField('sat_per_orbit', parseInt(e.target.value) || 0)}
+              onChange={(e) => updateField('sat_per_orbit', parseInt(e.target.value) || 1)}
               className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
             />
           </div>
@@ -95,7 +94,7 @@ export function ShellEditor({ shell, index, onChange, onRemove, canRemove }: She
               max={ALTITUDE_MAX_KM}
               step="1"
               value={shell.altitude}
-              onChange={(e) => updateField('altitude', parseFloat(e.target.value) || 0)}
+              onChange={(e) => updateField('altitude', parseFloat(e.target.value) || 200)}
               className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
               aria-invalid={shell.altitude < ALTITUDE_MIN_KM || shell.altitude > ALTITUDE_MAX_KM}
             />
@@ -145,6 +144,7 @@ export function ShellEditor({ shell, index, onChange, onRemove, canRemove }: She
             <input
               type="number"
               min={IPP_INCREMENT_MIN}
+              max={360}
               value={shell.ipp_increment}
               onChange={(e) => updateField('ipp_increment', parseInt(e.target.value) || IPP_INCREMENT_MIN)}
               className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
@@ -170,7 +170,7 @@ export function ShellEditor({ shell, index, onChange, onRemove, canRemove }: She
               Perturber <span className="text-red-500">*</span>
             </label>
             <select
-              value={shell.perturber}
+              value={perturber}
               onChange={(e) => updateField('perturber', e.target.value as ShellConfig['perturber'])}
               className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
             >
@@ -178,7 +178,7 @@ export function ShellEditor({ shell, index, onChange, onRemove, canRemove }: She
               <option value="Moon">Moon</option>
               <option value="None">None</option>
             </select>
-            {shell.perturber !== 'None' && shell.body === shell.perturber && (
+            {perturber !== 'None' && shell.body === perturber && (
               <p className="text-xs text-red-500 mt-1">Body and Perturber cannot be the same</p>
             )}
           </div>

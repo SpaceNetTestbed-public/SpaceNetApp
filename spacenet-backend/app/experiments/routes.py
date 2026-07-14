@@ -307,11 +307,63 @@ def update_experiment(experiment_id):
       200:
         description: Experiment updated
     """
-    data = request.get_json() or {}
+    data = {}
+    if request.content_type and request.content_type.startswith("multipart/form-data"):
+        data["name"] = request.form.get("name", "").strip()
+        data["description"] = request.form.get("description")
+        
+        # --- ROBUST TAG PARSING ---
+        raw_tags = request.form.getlist("tags")
+        if not raw_tags:
+            raw_tags = request.form.getlist("tags[]")
 
-    # Validate that at least one field is provided
-    if not any(k in data for k in ("name", "tags", "description")):
-        return jsonify({"error": "No update fields provided"}), 400
+        tags = []
+        for item in raw_tags:
+            item = item.strip()
+            if item.startswith('[') and item.endswith(']'):
+                try:
+                    parsed_list = json.loads(item)
+                    if isinstance(parsed_list, list):
+                        tags.extend([str(t).strip() for t in parsed_list])
+                except json.JSONDecodeError:
+                    tags.append(item)
+            elif ',' in item:
+                tags.extend([t.strip() for t in item.split(',') if t.strip()])
+            elif item:
+                tags.append(item)
+        
+        if tags:
+             data["tags"] = tags
+        # --------------------------
+        
+        # Explicitly handle boolean from string
+        is_custom_str = request.form.get("is_custom")
+        if is_custom_str is not None:
+             data["is_custom"] = is_custom_str.lower() in ['true', '1', 'yes']
+
+        # Safely parse JSON strings from form data
+        def parse_json_field(field_name):
+            val = request.form.get(field_name)
+            return json.loads(val) if val else None
+
+        try:
+            # Only add to 'data' if the field is actually present in the request
+            if "sat_config" in request.form:
+                 data["sat_config"] = parse_json_field("sat_config")
+            if "main_config" in request.form:
+                 data["main_config"] = parse_json_field("main_config")
+            if "main_mn_config" in request.form:
+                 data["main_mn_config"] = parse_json_field("main_mn_config")
+        except json.JSONDecodeError:
+            return jsonify({"error": "Invalid JSON format in config fields"}), 400
+            
+        zip_file = request.files.get("experiment_payload")
+
+    else:
+        # Standard JSON request fallback
+        data = request.get_json() or {}
+        zip_file = None
+
 
     # Fetch experiment and ensure ownership
     experiment = Experiment.query.filter_by(
@@ -322,7 +374,7 @@ def update_experiment(experiment_id):
         return jsonify({"error": "Experiment not found"}), 404
 
     # Apply partial updates
-    if "name" in data:
+    if "name" in data and data["name"]:
         experiment.name = data["name"]
 
     if "tags" in data:
@@ -331,25 +383,80 @@ def update_experiment(experiment_id):
     if "description" in data:
         experiment.description = data["description"]
     
+    # Optional: Update is_custom if your app allows changing type after creation
+    if "is_custom" in data:
+        experiment.is_custom = data["is_custom"]
+    
+    workspace_dir = os.path.join("local_workspace", str(experiment.id))
+    
     if experiment.is_custom:
-      if "main_config" in data:
-        data["main_config"] = add_main_default(data["main_config"], experiment.id)
-        with open(f'local_workspace/{experiment.id}/{MAIN_FILE}', 'w') as file:
-          yaml.dump(data["main_config"], file, sort_keys=False)
-      if "sat_config" in data:
-        data["sat_config"] = add_sat_config_default(data["sat_config"])
-        with open(f'local_workspace/{experiment.id}/{SAT_FILE}', 'w') as file:
-          yaml.dump(data["sat_config"], file, sort_keys=False)
-        sat_mn_config = create_sat_mn_config(data["sat_config"])
-        with open(f'local_workspace/{experiment.id}/{SAT_MN_FILE}', 'w') as file:
-          yaml.dump(sat_mn_config, file, sort_keys=False)
-      if "main_mn_config" in data:
-        if data['main_mn_config'] == {}:
-          os.system(f"rm local_workspace/{experiment.id}/{MAIN_MN_FILE}")
+        # Handle ZIP File update if provided
+        if zip_file:
+            os.makedirs(workspace_dir, exist_ok=True)
+            include = {"gifs", "output", "output_mn", "starlink_tles", 'main_config.yaml',  'main_mn_config.yaml', 'output_mn.zip', 'output.zip', 'sat_config.yaml', 'sat_mn_config.yaml'}
+            with zipfile.ZipFile(zip_file, "r") as zf:
+                members = [
+                    name for name in zf.namelist()
+                    if name.rstrip("/").split("/")[0] in include
+                ]
+                zf.extractall(path=workspace_dir, members=members)
+            
+            # Re-process configs extracted from the new zip
+            try:
+                with open(os.path.join(workspace_dir, SAT_FILE), 'r+') as file:
+                    sat_config = yaml.safe_load(file)
+                    if 'dynamic-topology-generator' not in sat_config.get('TLEFilePath', ''):
+                        sat_config['TLEFilePath'] = f'local_workspace/{experiment.id}'
+                    file.seek(0)
+                    yaml.dump(sat_config, file, sort_keys=False)
+                    file.truncate()
+            except FileNotFoundError:
+                pass # Or handle missing zip configs as needed
+
+            try:
+                with open(os.path.join(workspace_dir, MAIN_FILE), 'r+') as file:
+                    main_config = yaml.safe_load(file)
+                    main_w_def = add_main_default(main_config, experiment.id)
+                    file.seek(0)
+                    yaml.dump(main_w_def, file, sort_keys=False)
+                    file.truncate()
+            except FileNotFoundError:
+                pass
+
+            try:
+                with open(os.path.join(workspace_dir, MAIN_MN_FILE), 'r+') as file:
+                    main_mn_config = yaml.safe_load(file)
+                    main_mn_def = add_main_mn_default(main_mn_config, experiment.id)
+                    file.seek(0)
+                    yaml.dump(main_mn_def, file, sort_keys=False)
+                    file.truncate()
+            except FileNotFoundError:
+                pass
+        
+        # Handle specific YAML updates
         else:
-          data["main_mn_config"] = add_main_mn_default(data["main_mn_config"], experiment.id)
-          with open(f'local_workspace/{experiment.id}/{MAIN_MN_FILE}', 'w') as file:
-            yaml.dump(data["main_mn_config"], file, sort_keys=False)
+            if "main_config" in data:
+                data["main_config"] = add_main_default(data["main_config"], experiment.id)
+                with open(f'local_workspace/{experiment.id}/{MAIN_FILE}', 'w') as file:
+                    yaml.dump(data["main_config"], file, sort_keys=False)
+            
+            if "sat_config" in data:
+                data["sat_config"] = add_sat_config_default(data["sat_config"])
+                with open(f'local_workspace/{experiment.id}/{SAT_FILE}', 'w') as file:
+                    yaml.dump(data["sat_config"], file, sort_keys=False)
+                sat_mn_config = create_sat_mn_config(data["sat_config"])
+                with open(f'local_workspace/{experiment.id}/{SAT_MN_FILE}', 'w') as file:
+                    yaml.dump(sat_mn_config, file, sort_keys=False)
+            
+            if "main_mn_config" in data:
+                if data['main_mn_config'] == {}:
+                    mn_path = f"local_workspace/{experiment.id}/{MAIN_MN_FILE}"
+                    if os.path.exists(mn_path):
+                        os.remove(mn_path)
+                else:
+                    data["main_mn_config"] = add_main_mn_default(data["main_mn_config"], experiment.id)
+                    with open(f'local_workspace/{experiment.id}/{MAIN_MN_FILE}', 'w') as file:
+                        yaml.dump(data["main_mn_config"], file, sort_keys=False)
 
     db.session.commit()
 

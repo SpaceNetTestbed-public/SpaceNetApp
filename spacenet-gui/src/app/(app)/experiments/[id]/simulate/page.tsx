@@ -9,6 +9,7 @@ import { apiFetch, API_URL } from '@/lib/api'
 import { SatConfig } from '@/types/experiment-config'
 import { getApiErrorMessage } from '@/lib/utils'
 import { toast } from 'sonner'
+import { useJobPolling } from '@/hooks/useJobPolling'
 import { PhaseCard } from '@/components/experiment/PhaseCard'
 import { VisualizationPanel } from '@/components/experiment/VisualizationPanel'
 import { LogsModal } from '@/components/experiment/LogsModal'
@@ -46,9 +47,11 @@ export default function SimulationPage() {
 
   /* ----------------------------- Phase Polling ----------------------------- */
   const [pollingPhase, setPollingPhase] = useState<1 | 2 | null>(null)
-  const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const pollingPhaseRef = useRef<1 | 2 | null>(null)
   const trackedJobIdRef = useRef<string | null>(null)
+
+  /* ----------------------------- GIF Polling ----------------------------- */
+  const [isGifPolling, setIsGifPolling] = useState(false)
+  const gifPollAttemptsRef = useRef(0)
 
   /* ----------------------------- Logs ----------------------------- */
   const [showLogs, setShowLogs] = useState(false)
@@ -60,49 +63,56 @@ export default function SimulationPage() {
   const [phaseOverrideConfirm, setPhaseOverrideConfirm] = useState<1|2|null>(null)
 
   /* ----------------------------- Polling helpers ----------------------------- */
-  const stopPolling = () => {
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current)
-      pollingIntervalRef.current = null
-    }
-    pollingPhaseRef.current = null
-    setPollingPhase(null)
-  }
+  const stopPolling = () => setPollingPhase(null)
 
-  const startPhasePolling = (phase: 1 | 2) => {
-    stopPolling()
-    pollingPhaseRef.current = phase
-    setPollingPhase(phase)
+  const startPhasePolling = (phase: 1 | 2) => setPollingPhase(phase)
 
-    pollingIntervalRef.current = setInterval(async () => {
-      const currentPhase = pollingPhaseRef.current
-      if (!currentPhase) return
-      const jobId = trackedJobIdRef.current
-      if (!jobId) return
-      try {
-        const jobs = await apiFetch('/jobs') as Array<{ job_id: string; status: string }>
-        const job = jobs.find(j => j.job_id === jobId)
-        if (!job) return
-        if (job.status === 'finished') {
-          stopPolling()
-          toast.success(`Phase ${currentPhase} complete`)
-          await checkStatus()
-        } else if (job.status === 'failed') {
-          stopPolling()
-          toast.error(`Phase ${currentPhase} failed - check jobs page for logs`)
-        }
-      } catch {
-        // poll failures are silently ignored
+  const pollPhaseTick = async () => {
+    const currentPhase = pollingPhase
+    if (!currentPhase) return
+    const jobId = trackedJobIdRef.current
+    if (!jobId) return
+    try {
+      const jobs = await apiFetch('/jobs') as Array<{ job_id: string; status: string }>
+      const job = jobs.find(j => j.job_id === jobId)
+      if (!job) return
+      if (job.status === 'finished') {
+        stopPolling()
+        toast.success(`Phase ${currentPhase} complete`)
+        await checkStatus()
+      } else if (job.status === 'failed') {
+        stopPolling()
+        toast.error(`Phase ${currentPhase} failed — check the Jobs page for logs`)
+      } else if (job.status === 'cancelled') {
+        stopPolling()
+        toast.info(`Phase ${currentPhase} was cancelled`)
       }
-    }, 5000)
+    } catch {
+      // poll failures are silently ignored
+    }
   }
 
-  // Cleanup polling on unmount
-  useEffect(() => {
-    return () => {
-      if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current)
+  useJobPolling(pollPhaseTick, { intervalMs: 3000, enabled: pollingPhase !== null })
+
+  const gifPollTick = async () => {
+    gifPollAttemptsRef.current += 1
+    const attempts = gifPollAttemptsRef.current
+    try {
+      const res = await fetch(`${API_URL}/experiments/${id}/gifs/output/file`)
+      if (res.ok || attempts >= 20) {
+        setIsGifPolling(false)
+        await fetchOutput()
+        setIsSubmitting(false)
+      }
+    } catch {
+      if (attempts >= 20) {
+        setIsGifPolling(false)
+        setIsSubmitting(false)
+      }
     }
-  }, [])
+  }
+
+  useJobPolling(gifPollTick, { intervalMs: 3000, enabled: isGifPolling })
 
   /* ----------------------------- Status Check ----------------------------- */
   const checkStatus = async () => {
@@ -148,11 +158,10 @@ export default function SimulationPage() {
   useEffect(() => {
     const checkMainMN = async () => {
       try {
-        const res = await fetch(`${API_URL}/experiments/${id}/main-mn`)
-        if (!res.ok) {
-          setHasMN(false)
-        }
-        console.log("HERE")
+      const res = await fetch(`${API_URL}/experiments/${id}/main-mn`)
+      if (!res.ok) {
+        setHasMN(false)
+      }
       } catch (err) {
         console.error('Failed to fetch main mn config', err)
         toast.error(getApiErrorMessage(err, 'Failed to load Main MN config'), { id: 'experiment-main-mn-config-load' })
@@ -262,67 +271,62 @@ export default function SimulationPage() {
 
   /* ----------------------------- Run visualization ----------------------------- */
   const handleCreateGif = async () => {
-    try{
-      setIsSubmitting(true)
-      setHasOutput(false)
-      setOutputChecked(false)
+    setIsSubmitting(true)
+    setHasOutput(false)
+    setOutputChecked(false)
+    try {
       await apiFetch(`/experiments/${id}/create-gif`, {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          gif_name:'output',
-          plot_GSs:true,
-          make_gif:false,
-          plot_in_3D:true,
-          plot_debug:false,
-          plot_only_optimal:false,
-          plot_optimal_orbits:false,
-          center_gif:false,
+          gif_name: 'output',
+          plot_GSs: true,
+          make_gif: false,
+          plot_in_3D: true,
+          plot_debug: false,
+          plot_only_optimal: false,
+          plot_optimal_orbits: false,
+          center_gif: false,
           time_step: timeSteps[timeStepIndex],
-          lat:0,
-          long:0,
-          shells: shellColors
-        })
+          lat: 0,
+          long: 0,
+          shells: shellColors,
+        }),
       })
-      await new Promise(r=>setTimeout(r,6000))
-      await fetchOutput()
-    }catch(err){
-      console.error(err)
+    } catch (err) {
       toast.error(getApiErrorMessage(err, 'Failed to generate output'), { id: 'experiment-output-generate' })
-    }finally{
       setIsSubmitting(false)
+      return
     }
+    // Poll every 3 s until the output file appears (max 20 × 3 s = 60 s)
+    gifPollAttemptsRef.current = 0
+    setIsGifPolling(true)
   }
 
   const handleCreateAniGif = async () => {
-    try{
+    try {
       setIsSubmitting(true)
       await apiFetch(`/experiments/${id}/create-gif`, {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          gif_name:'output-gif',
-          plot_GSs:true,
-          make_gif:true,
-          plot_in_3D:true,
-          plot_debug:false,
-          plot_only_optimal:false,
-          plot_optimal_orbits:false,
-          center_gif:true,
+          gif_name: 'output-gif',
+          plot_GSs: true,
+          make_gif: true,
+          plot_in_3D: true,
+          plot_debug: false,
+          plot_only_optimal: false,
+          plot_optimal_orbits: false,
+          center_gif: true,
           time_step: 0,
-          lat:0,
-          long:0,
-          shells: {
-            '0': 'green',
-            '1': 'yellow',
-            '2': 'blue'
-          }
-        })
+          lat: 0,
+          long: 0,
+          shells: shellColors,
+        }),
       })
-    }catch(err){
-      console.error(err)
+    } catch (err) {
       toast.error(getApiErrorMessage(err, 'Failed to generate output'), { id: 'experiment-output-generate' })
-    }finally{
+    } finally {
       setIsSubmitting(false)
     }
   }
@@ -359,26 +363,22 @@ export default function SimulationPage() {
 
     if (phase === 1) {
       await apiFetch(`/experiments/${id}/create-gif`, {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          gif_name:'output-gif',
-          plot_GSs:true,
-          make_gif:true,
-          plot_in_3D:true,
-          plot_debug:false,
-          plot_only_optimal:false,
-          plot_optimal_orbits:false,
-          center_gif:true,
+          gif_name: 'output-gif',
+          plot_GSs: true,
+          make_gif: true,
+          plot_in_3D: true,
+          plot_debug: false,
+          plot_only_optimal: false,
+          plot_optimal_orbits: false,
+          center_gif: true,
           time_step: 0,
-          lat:0,
-          long:0,
-          shells: {
-            shell1: 'green',
-            shell2: 'yellow',
-            shell3: 'blue'
-          }
-        })
+          lat: 0,
+          long: 0,
+          shells: shellColors,
+        }),
       })
     }
   }
@@ -415,7 +415,7 @@ export default function SimulationPage() {
       {/* ==================== Phase 1 & Phase 2 ==================== */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 border-b pb-8">
         <PhaseCard
-          id={id}
+          id={Number(id)}
           phase={1}
           hasOutput={hasPhase1}
           isSubmitting={isSubmitting}
@@ -430,7 +430,7 @@ export default function SimulationPage() {
           onCreateAniGif={handleCreateAniGif}
         />
         <PhaseCard
-          id={id}
+          id={Number(id)}
           phase={2}
           hasOutput={hasPhase2}
           isSubmitting={isSubmitting}

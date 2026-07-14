@@ -11,6 +11,28 @@ import { useRouter } from 'next/navigation'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import type { TLEFile, TLEContent } from '@/types/types'
 
+function TLETableSkeleton() {
+  return (
+    <>
+      <tr role="status" aria-live="polite">
+        <td colSpan={3} className="sr-only">Loading TLE files…</td>
+      </tr>
+      {Array.from({ length: 4 }).map((_, i) => (
+        <tr key={i} className="animate-pulse">
+          <td className="px-6 py-4"><div className="h-4 bg-light-border dark:bg-dark-border rounded w-32" /></td>
+          <td className="px-6 py-4"><div className="h-4 bg-light-border dark:bg-dark-border rounded w-56" /></td>
+          <td className="px-6 py-4">
+            <div className="flex gap-2">
+              <div className="h-8 w-8 bg-light-border dark:bg-dark-border rounded" />
+              <div className="h-8 w-8 bg-light-border dark:bg-dark-border rounded" />
+            </div>
+          </td>
+        </tr>
+      ))}
+    </>
+  )
+}
+
 export default function TLEPage() {
   const router = useRouter()
   const [TLES, setTLES] = useState<TLEFile[]>([])
@@ -31,7 +53,7 @@ export default function TLEPage() {
   // View Modal State
   const [showViewModal, setShowViewModal] = useState(false);
   const [viewTLEFile, setViewTLEFile] = useState<TLEFile | null>(null);
-  const [tleContent, setTleContent] = useState<any>(null);
+  const [tleContent, setTleContent] = useState<string | null>(null);
   const [isLoadingContent, setIsLoadingContent] = useState(false);
 
   // Fetch TLE files
@@ -162,7 +184,9 @@ export default function TLEPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-light-border dark:divide-dark-border">
-              {filteredFiles.map((file, i) => (
+              {loading ? (
+                <TLETableSkeleton />
+              ) : filteredFiles.map((file, i) => (
                 <motion.tr
                   key={file.id}
                   initial={{ opacity: 0, y: 12 }}
@@ -201,9 +225,9 @@ export default function TLEPage() {
           </table>
         </div>
 
-        {filteredFiles.length === 0 && (
-          <div className="text-center py-12 text-light-text/60 dark:text-dark-subtext">
-            {loading ? 'Loading files...' : 'No TLE files found.'}
+        {!loading && filteredFiles.length === 0 && (
+          <div role="status" aria-live="polite" className="text-center py-12 text-light-text/60 dark:text-dark-subtext">
+            No TLE files found.
           </div>
         )}
       </motion.div>
@@ -380,12 +404,12 @@ export default function TLEPage() {
                 </label>
                 
                 {isLoadingContent ? (
-                  <div className="p-4 text-center text-sm text-light-text/60">
-                    Loading content...
+                  <div role="status" aria-live="polite" className="p-4 text-center text-sm text-light-text/60">
+                    Loading content…
                   </div>
                 ) : tleContent ? (
                   <div className="mb-2 p-3 bg-light-bg dark:bg-dark-bg rounded border border-light-border dark:border-dark-border text-xs font-mono max-h-60 overflow-auto text-light-text dark:text-dark-text whitespace-pre-wrap">
-                    {typeof tleContent === 'object' ? JSON.stringify(tleContent, null, 2) : String(tleContent)}
+                    {tleContent}
                   </div>
                 ) : (
                   <div className="p-4 text-center text-sm text-light-text/60">

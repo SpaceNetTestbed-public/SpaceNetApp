@@ -41,17 +41,18 @@ def create_sat_config(experiment_id, sat_config ):
     # edit this logic to include custom tle.
     sat_config['generate_TLE'] = True
     tles_dir = os.path.join(sat_config["TLEFilePath"], f"{sat_config['operator_name']}_tles")
-    for filename in os.listdir(tles_dir):
-        name, _ = os.path.splitext(filename)
-        l = name.split('_')
-        if len(l) < 2:
-            continue
-        if not l[1].isdigit():
-            continue
-        file_ts = int(l[1])
-        file_dt = datetime.fromtimestamp(file_ts)
-        if min_dt <= file_dt <= max_dt:
-            sat_config['generate_TLE'] = False
+    if os.path.isdir(tles_dir):
+        for filename in os.listdir(tles_dir):
+            name, _ = os.path.splitext(filename)
+            l = name.split('_')
+            if len(l) < 2:
+                continue
+            if not l[1].isdigit():
+                continue
+            file_ts = int(l[1])
+            file_dt = datetime.fromtimestamp(file_ts)
+            if min_dt <= file_dt <= max_dt:
+                sat_config['generate_TLE'] = False
 
     if not validateConfig(sat_config, sat_config_schema):
         raise ValidationError("Satellite configuration is invalid")
@@ -63,7 +64,7 @@ def create_sat_config(experiment_id, sat_config ):
         total_sats += shell_total
 
     ground_station_count = 0
-    with open(GROUND_STATION_FILE, "r") as f:
+    with open(resolve_ground_station_file(), "r") as f:
         for line in f:
             ground_station_count += 1
     
@@ -93,6 +94,17 @@ def create_sat_config(experiment_id, sat_config ):
 
 CONSTELLATION_NAME = "sat_config"
 GROUND_STATION_FILE =  "dynamic-topology-generator/utils/gs_files/gs_default.txt"
+FALLBACK_GROUND_STATION_FILE = "default/gs_default.txt"
+
+def resolve_ground_station_file():
+    if os.path.exists(GROUND_STATION_FILE):
+        return GROUND_STATION_FILE
+    if os.path.exists(FALLBACK_GROUND_STATION_FILE):
+        return FALLBACK_GROUND_STATION_FILE
+    raise FileNotFoundError(
+        f"Ground station file not found at {GROUND_STATION_FILE} or {FALLBACK_GROUND_STATION_FILE}"
+    )
+
 T2T_DICT_OUTPUT_FILE = "dynamic-topology-generator/t2t/gateway_files/t2t_dict.json"
 T2T_AZURE_ENDPOINT_LOCATION_FILE = "dynamic-topology-generator/t2t/azure/AzureDataCenterLocations.csv"
 T2T_AZURE_ENDPOINT_LATENCY_URL = "https://learn.microsoft.com/en-us/azure/networking/azure-network-latency"
@@ -127,7 +139,7 @@ def check_ground_station_nodes(experiment_id, main_config, isMn=False):
         dest = main_config["DestNode"]
     sourceFound = False
     destFound = False
-    with open(GROUND_STATION_FILE, "r") as f:
+    with open(resolve_ground_station_file(), "r") as f:
         for line in f:
             parts = line.strip().split(",")
             value = parts[0]

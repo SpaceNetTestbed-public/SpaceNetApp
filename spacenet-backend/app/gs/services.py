@@ -2,15 +2,33 @@ import os
 import shutil
 import math
 
+from app.configurations.create_config import resolve_ground_station_file
+
+
+def parse_ground_stations_from_file(filepath):
+    stations = []
+    with open(filepath, "r", encoding="utf-8") as f:
+        for line in f:
+            if line.strip() == "":
+                continue
+            parts = line.strip().split(",")
+            try:
+                stations.append({
+                    "id": int(parts[0]),
+                    "name": parts[1],
+                    "lat": float(parts[2]),
+                    "lon": float(parts[3]),
+                })
+            except (IndexError, ValueError):
+                continue
+    return stations
+
+
 def create_default_gs(gs_file_id):
-    os.makedirs("local_workspace" + "/gs", exist_ok=True)
-    
-
-    source_path = "default/gs_default.txt"
+    os.makedirs("local_workspace/gs", exist_ok=True)
+    source_path = resolve_ground_station_file()
     destination_path = f"local_workspace/gs/{gs_file_id}.txt"
-
     shutil.copy2(source_path, destination_path)
-    pass
 
 # WGS-84 constants
 A = 6378137.0          # semi-major axis

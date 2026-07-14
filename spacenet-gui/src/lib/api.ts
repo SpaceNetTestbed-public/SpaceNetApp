@@ -1,28 +1,69 @@
 export const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-export async function apiFetch(endpoint: string, options: RequestInit = {}): Promise<unknown> {
-  // 1. Check if the body is FormData
-  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
+const DEFAULT_TIMEOUT_MS = 30000;
 
-  // 2. Safely type cast the incoming headers
-  const headers: Record<string, string> = {
-    ...(options.headers as Record<string, string> || {}),
-  };
+export class ApiError extends Error {
+  status: number;
+  body?: string;
+  isTimeout: boolean;
 
-  // 3. Only apply application/json if it's NOT a FormData payload
-  // and if a Content-Type wasn't already passed in manually
-  if (!isFormData && !headers['Content-Type']) {
-    headers['Content-Type'] = 'application/json';
+  constructor(message: string, options: { status: number; body?: string; isTimeout?: boolean }) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = options.status;
+    this.body = options.body;
+    this.isTimeout = options.isTimeout ?? false;
+  }
+}
+
+export async function apiFetch(
+  endpoint: string,
+  options: RequestInit & { timeoutMs?: number } = {}
+): Promise<unknown> {
+  if (!API_URL) {
+    throw new Error(
+      'NEXT_PUBLIC_API_URL is not configured. ' +
+      'Add NEXT_PUBLIC_API_URL=http://localhost:8000 to your .env.local file.'
+    );
   }
 
-  const res = await fetch(`${API_URL}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  const { timeoutMs = DEFAULT_TIMEOUT_MS, signal, ...rest } = options;
+
+  // Do NOT set Content-Type when the body is FormData — the browser must set
+  // it automatically so it can include the multipart boundary.
+  const isFormData = rest.body instanceof FormData;
+  const headers: Record<string, string> = {
+    ...(rest.headers as Record<string, string> | undefined),
+    ...(!isFormData && { 'Content-Type': 'application/json' }),
+  };
+
+  // A caller-supplied signal wins; otherwise apply the timeout ourselves.
+  const controller = signal ? null : new AbortController();
+  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${endpoint}`, {
+      ...rest,
+      headers,
+      signal: signal ?? controller?.signal,
+    });
+  } catch (err) {
+    if (controller?.signal.aborted) {
+      throw new ApiError('Request timed out — please try again.', { status: 0, isTimeout: true });
+    }
+    throw err;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(text || 'Request failed');
+    const trimmed = text.trimStart();
+    if (trimmed.startsWith('<!') || trimmed.toLowerCase().startsWith('<html')) {
+      throw new ApiError('Server error — please try again.', { status: res.status, body: text });
+    }
+    throw new ApiError(text || 'Request failed', { status: res.status, body: text });
   }
 
   return res.json();
