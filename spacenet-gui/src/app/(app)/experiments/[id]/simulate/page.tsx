@@ -428,7 +428,7 @@ export default function SimulationPage() {
       {/* ==================== Phase 1 & Phase 2 ==================== */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 border-b pb-8">
         <PhaseCard
-          id={id}
+          id={Number(id)}
           phase={1}
           hasOutput={hasPhase1}
           isSubmitting={isSubmitting}
@@ -443,7 +443,7 @@ export default function SimulationPage() {
           onCreateAniGif={handleCreateAniGif}
         />
         <PhaseCard
-          id={id}
+          id={Number(id)}
           phase={2}
           hasOutput={hasPhase2}
           isSubmitting={isSubmitting}

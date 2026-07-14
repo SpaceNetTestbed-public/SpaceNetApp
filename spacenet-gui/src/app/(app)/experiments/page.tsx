@@ -587,9 +587,19 @@ export default function ExperimentsPage() {
                             Mininet Config YAML
                           </label>
                           {editExperiment && existingConfigs.mininet && !yamlFile2 && (
-                            <Button variant="ghost" size="sm" onClick={() => setDeleteMNConfirm(true)} className="h-6 px-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-950">
-                              <Trash2 className="h-3 w-3 mr-1" aria-hidden="true" /> Delete Existing
-                            </Button>
+                            // Change the button onClick inside the Mininet Config section:
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => {
+                              setExistingConfigs((prev) => ({ ...prev, mininet: null }));
+                              setDeleteMN(true); // Queue the deletion for the main form submission
+                              toast.success("MININET config replaced — save to apply changes.");
+                            }} 
+                            className="h-6 px-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-950"
+                          >
+                            <Trash2 className="h-3 w-3 mr-1" aria-hidden="true" /> Delete Existing
+                          </Button>
                           )}
                         </div>
                         
@@ -704,7 +714,7 @@ export default function ExperimentsPage() {
                     
                     if (newDescription.trim()) formData.append('description', newDescription.trim());
                     if (tags && tags.length > 0) formData.append('tags', JSON.stringify(tags));
-                    if (deleteMN) formData.append('delete_mn', 'true');
+                    if (deleteMN) formData.append('main_mn_config', JSON.stringify({}));
 
                     if (isCustom && yamlFile) {
                       const text = await yamlFile.text();
