@@ -1,4 +1,4 @@
-import { apiFetch } from '@/lib/api'
+import { apiFetch, ApiError } from '@/lib/api'
 
 const mockFetch = jest.fn() as jest.MockedFunction<typeof fetch>
 const originalFetch = global.fetch
@@ -54,6 +54,7 @@ describe('apiFetch', () => {
   it('throws with the response text on a non-OK status', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: false,
+      status: 401,
       text: jest.fn().mockResolvedValueOnce('Unauthorized'),
     } as unknown as Response)
 
@@ -63,10 +64,58 @@ describe('apiFetch', () => {
   it('throws "Request failed" when the non-OK body is empty', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: false,
+      status: 500,
       text: jest.fn().mockResolvedValueOnce(''),
     } as unknown as Response)
 
     await expect(apiFetch('/fail')).rejects.toThrow('Request failed')
+  })
+
+  it('throws an ApiError instance carrying status and body on a non-OK response', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 404,
+      text: jest.fn().mockResolvedValueOnce('Not found'),
+    } as unknown as Response)
+
+    await expect(apiFetch('/missing')).rejects.toMatchObject({
+      status: 404,
+      body: 'Not found',
+      isTimeout: false,
+    })
+  })
+
+  it('throws a value that is an instance of ApiError', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 404,
+      text: jest.fn().mockResolvedValueOnce('Not found'),
+    } as unknown as Response)
+
+    await expect(apiFetch('/missing')).rejects.toBeInstanceOf(ApiError)
+  })
+
+  it('throws an ApiError with isTimeout when the request exceeds the timeout', async () => {
+    jest.useFakeTimers()
+    mockFetch.mockImplementationOnce((_url, opts) => {
+      return new Promise((_resolve, reject) => {
+        const signal = (opts as RequestInit).signal
+        signal?.addEventListener('abort', () => {
+          const err = new Error('The operation was aborted')
+          err.name = 'AbortError'
+          reject(err)
+        })
+      })
+    })
+
+    const promise = apiFetch('/slow', { timeoutMs: 1000 })
+    const assertion = expect(promise).rejects.toMatchObject({
+      isTimeout: true,
+      status: 0,
+    })
+    jest.advanceTimersByTime(1000)
+    await assertion
+    jest.useRealTimers()
   })
 
   it('returns parsed JSON on a successful response', async () => {

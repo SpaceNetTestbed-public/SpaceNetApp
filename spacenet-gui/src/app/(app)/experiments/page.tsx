@@ -141,6 +141,7 @@ export default function ExperimentsPage() {
       });
     } catch (err) {
       console.error("Error fetching configs:", err);
+      toast.error(getApiErrorMessage(err, 'Failed to load existing experiment configs'), { id: 'experiment-fetch-configs' });
     }
   };
 
