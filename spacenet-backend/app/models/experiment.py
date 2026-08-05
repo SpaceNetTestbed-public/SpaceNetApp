@@ -24,6 +24,7 @@ class Experiment(db.Model):
     job_logs = db.relationship(
         "JobLog",
         back_populates="experiment",
+        cascade="all, delete-orphan",
         passive_deletes=True
     )
 
