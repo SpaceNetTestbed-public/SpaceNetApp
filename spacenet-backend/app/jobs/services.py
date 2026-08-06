@@ -13,6 +13,21 @@ import shutil
 
 from app.models.job_log import JobLog
 
+
+class PhaseFailedError(RuntimeError):
+    """
+    Raised when a phase subprocess exits non-zero.
+
+    Carries the streamed logs so the caller can still persist them to JobLog -
+    without this the traceback that explains the failure is lost, because the
+    caller's `logs += run_phase_x(...)` never completes when the call raises.
+    """
+
+    def __init__(self, message, logs=""):
+        super().__init__(message)
+        self.logs = logs
+
+
 # -------------------------
 # MAIN JOB ENTRY POINT
 # -------------------------
@@ -47,6 +62,10 @@ def process_config(experiment_id):
 
             logs += "--- Job completed successfully ---\n"
 
+        except PhaseFailedError as e:
+            logs += e.logs
+            logs += f"❌ Error: {str(e)}\n"
+            raise
         except Exception as e:
             logs += f"❌ Error: {str(e)}\n"
             raise
@@ -106,6 +125,10 @@ def process_config_phase_2(experiment_id):
 
             logs += "--- Job completed successfully ---\n"
 
+        except PhaseFailedError as e:
+            logs += e.logs
+            logs += f"❌ Error: {str(e)}\n"
+            raise
         except Exception as e:
             logs += f"❌ Error: {str(e)}\n"
             raise
@@ -157,6 +180,10 @@ def process_config_gif_maker(experiment_id, gif_name):
 
             logs += "--- Job completed successfully ---\n"
 
+        except PhaseFailedError as e:
+            logs += e.logs
+            logs += f"❌ Error: {str(e)}\n"
+            raise
         except Exception as e:
             logs += f"❌ Error: {str(e)}\n"
             raise
@@ -215,6 +242,10 @@ def run_phase_1(experiment_id):
 
     process.wait()
     logs += f"\n--- Phase_1 finished with code {process.returncode} ---\n"
+    if process.returncode != 0:
+        raise PhaseFailedError(
+            f"Phase 1 exited with code {process.returncode}", logs
+        )
     return logs
     
 # -------------------------
@@ -245,6 +276,10 @@ def create_gif(experiment_id, gif_name):
 
     process.wait()
     logs += f"\n--- Gif Maker finished with code {process.returncode} ---\n"
+    if process.returncode != 0:
+        raise PhaseFailedError(
+            f"Gif maker exited with code {process.returncode}", logs
+        )
     return logs
 
 # -------------------------
@@ -275,6 +310,10 @@ def run_phase_2(experiment_id):
 
     process.wait()
     logs += f"\n--- Phase_2 finished with code {process.returncode} ---\n"
+    if process.returncode != 0:
+        raise PhaseFailedError(
+            f"Phase 2 exited with code {process.returncode}", logs
+        )
     return logs
 
 
