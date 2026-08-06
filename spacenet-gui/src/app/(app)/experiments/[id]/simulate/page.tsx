@@ -1,10 +1,11 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Play } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { ErrorState } from '@/components/ui/error-state'
 import { apiFetch, API_URL } from '@/lib/api'
 import { SatConfig } from '@/types/experiment-config'
 import { getApiErrorMessage } from '@/lib/utils'
@@ -21,6 +22,123 @@ interface PhaseStartResponse {
   job_id?: string
 }
 
+interface PhaseProgress {
+  /** Human-readable step label derived from the log stream */
+  step: string
+  /** Wall-clock timestamp (ms since epoch) when this phase started */
+  startedAt: number
+  /** Last non-empty line from the simulator's stdout (truncated by UI) */
+  lastLine: string
+  /** Last N non-empty stdout lines, oldest → newest, for the expandable console */
+  logTail: string[]
+  /** Estimated completion 0–100 (from tqdm or pipeline milestones) */
+  percent: number
+  /** Optional sub-label, e.g. "2 / 3 timesteps" */
+  detail?: string
+}
+
+// How many trailing log lines to keep for the expandable "live log" console.
+const LOG_TAIL_LINES = 15
+
+// Map Phase 1 / Phase 2 stdout markers to a friendly step label.
+// Order matters — checks are run top-to-bottom, later matches win, so the
+// list reflects the pipeline order.
+function derivePhaseStep(logs: string, phase: 1 | 2): string {
+  if (!logs) return 'Starting…'
+  const PHASE_1_MARKERS: Array<[string, string]> = [
+    ['Generating Constellation TLEs', 'Generating satellite orbits'],
+    ['Phase-0: Configuration Set-up', 'Configuring simulation'],
+    ['Phase-1: ', 'Computing satellite positions'],
+    ['Phase-2: Building topology', 'Building network topology (slowest step)'],
+    ['Phase-3: ', 'Computing routing tables'],
+    ['Phase-4: ', 'Computing optimal paths'],
+    ['Phase_1 finished', 'Packaging output'],
+  ]
+  const PHASE_2_MARKERS: Array<[string, string]> = [
+    ['Running', 'Running network simulation'],
+    ['finished', 'Finalizing'],
+  ]
+  const markers = phase === 1 ? PHASE_1_MARKERS : PHASE_2_MARKERS
+  let label = 'Starting…'
+  for (const [needle, friendly] of markers) {
+    if (logs.includes(needle)) label = friendly
+  }
+  return label
+}
+
+function extractLastLine(logs: string): string {
+  if (!logs) return ''
+  const lines = logs.split('\n')
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const trimmed = lines[i].trim()
+    if (trimmed.length > 0) return trimmed
+  }
+  return ''
+}
+
+function extractLogTail(logs: string, count: number): string[] {
+  if (!logs) return []
+  return logs
+    .split('\n')
+    .map((l) => l.trimEnd())
+    .filter((l) => l.trim().length > 0)
+    .slice(-count)
+}
+
+/** Estimate how far through a phase run we are (0–100). */
+function derivePhasePercent(logs: string, phase: 1 | 2): { percent: number; detail?: string } {
+  if (!logs) return { percent: 2 }
+
+  // tqdm-style progress from the simulator, e.g. "| 1/3 [" or "33%|"
+  const stepMatches = [...logs.matchAll(/\|\s*(\d+)\/(\d+)\s*\[/g)]
+  const lastStep = stepMatches.at(-1)
+  if (lastStep) {
+    const current = Number(lastStep[1])
+    const total = Number(lastStep[2])
+    if (total > 0) {
+      const stepPct = Math.round((current / total) * 100)
+      const detail = `${current} / ${total} timesteps`
+      // During Phase-2 topology building, map timestep progress into 30–85%
+      if (phase === 1 && logs.includes('Phase-2: Building topology')) {
+        return { percent: 30 + Math.round((stepPct / 100) * 55), detail }
+      }
+      return { percent: stepPct, detail }
+    }
+  }
+
+  const pctMatches = [...logs.matchAll(/(\d+)%\|/g)]
+  const lastPct = pctMatches.at(-1)
+  if (lastPct) {
+    const pct = Number(lastPct[1])
+    if (phase === 1 && logs.includes('Phase-2: Building topology')) {
+      return { percent: 30 + Math.round((pct / 100) * 55) }
+    }
+    return { percent: pct }
+  }
+
+  const PHASE_1_MILESTONES: Array<[string, number]> = [
+    ['Generating Constellation TLEs', 8],
+    ['Phase-0: Configuration Set-up', 15],
+    ['Phase-1: ', 28],
+    ['Phase-2: Building topology', 35],
+    ['Phase-3: ', 78],
+    ['Phase-4: ', 88],
+    ['Phase_1 finished', 96],
+    ['Folder zipped', 100],
+  ]
+  const PHASE_2_MILESTONES: Array<[string, number]> = [
+    ['Running phase_2', 15],
+    ['Running', 40],
+    ['finished with code 0', 95],
+  ]
+  const milestones = phase === 1 ? PHASE_1_MILESTONES : PHASE_2_MILESTONES
+  let percent = 5
+  for (const [needle, value] of milestones) {
+    if (logs.includes(needle)) percent = value
+  }
+  return { percent }
+}
+
 export default function SimulationPage() {
   const params = useParams()
   const router = useRouter()
@@ -34,6 +152,10 @@ export default function SimulationPage() {
   const [hasPhase1, setHasPhase1] = useState(false)
   const [hasPhase2, setHasPhase2] = useState(false)
   const [hasMN, setHasMN] = useState(true)
+  const [statusError, setStatusError] = useState<string | null>(null)
+
+  /* Announced to screen readers while phases / GIF generation are polling */
+  const [liveMessage, setLiveMessage] = useState('')
 
   /* ----------------------------- Output ----------------------------- */
   const [hasOutput, setHasOutput] = useState(false)
@@ -43,15 +165,35 @@ export default function SimulationPage() {
   const [timeStepIndex, setTimeStepIndex] = useState(0)
   const [shellNames, setShellNames] = useState<string[]>([])
   const [shellColors, setShellColors] = useState<Record<string, string>>({})
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  // Phase runs and globe/GIF generation are independent pipelines — track
+  // them separately so a rendering globe never disables the Run Phase buttons.
+  const [isPhaseSubmitting, setIsPhaseSubmitting] = useState(false)
+  const [isVizGenerating, setIsVizGenerating] = useState(false)
 
   /* ----------------------------- Phase Polling ----------------------------- */
   const [pollingPhase, setPollingPhase] = useState<1 | 2 | null>(null)
   const trackedJobIdRef = useRef<string | null>(null)
+  // If the /jobs response stops returning our tracked job for
+  // MAX_MISSED_POLLS in a row, we assume Redis lost it (worker crash,
+  // Redis restart, TTL expiry) and surface an error instead of spinning
+  // forever. This does NOT fire during a legitimately long-running phase —
+  // the counter resets to 0 on every poll where the job is found.
+  const missedPollsRef = useRef(0)
+  const MAX_MISSED_POLLS = 10 // 10 × 3s = 30 seconds
+
+  // Live progress info shown inside the running PhaseCard. Populated from the
+  // /jobs/<id>/logs endpoint on every poll. Null when no phase is running.
+  const [phaseProgress, setPhaseProgress] = useState<PhaseProgress | null>(null)
 
   /* ----------------------------- GIF Polling ----------------------------- */
   const [isGifPolling, setIsGifPolling] = useState(false)
   const gifPollAttemptsRef = useRef(0)
+  const [vizError, setVizError] = useState<string | null>(null)
+  /** Prevents double auto-launch of the globe renderer on mount + phase complete */
+  const vizAutoTriggeredRef = useRef(false)
+  /** RQ job id of the in-flight globe render, used by the viz Cancel button */
+  const gifJobIdRef = useRef<string | null>(null)
+  const triggerVisualizationRef = useRef<(auto?: boolean) => void>(() => {})
 
   /* ----------------------------- Logs ----------------------------- */
   const [showLogs, setShowLogs] = useState(false)
@@ -63,9 +205,19 @@ export default function SimulationPage() {
   const [phaseOverrideConfirm, setPhaseOverrideConfirm] = useState<1|2|null>(null)
 
   /* ----------------------------- Polling helpers ----------------------------- */
-  const stopPolling = () => setPollingPhase(null)
+  const stopPolling = () => {
+    setPollingPhase(null)
+    missedPollsRef.current = 0
+    trackedJobIdRef.current = null
+    setPhaseProgress(null)
+  }
 
-  const startPhasePolling = (phase: 1 | 2) => setPollingPhase(phase)
+  const startPhasePolling = (phase: 1 | 2, startedAt: number = Date.now()) => {
+    setPollingPhase(phase)
+    missedPollsRef.current = 0
+    setPhaseProgress({ step: 'Starting…', startedAt, lastLine: '', logTail: [], percent: 2 })
+    setLiveMessage(`Phase ${phase} running`)
+  }
 
   const pollPhaseTick = async () => {
     const currentPhase = pollingPhase
@@ -75,20 +227,73 @@ export default function SimulationPage() {
     try {
       const jobs = await apiFetch('/jobs') as Array<{ job_id: string; status: string }>
       const job = jobs.find(j => j.job_id === jobId)
-      if (!job) return
+      if (!job) {
+        missedPollsRef.current += 1
+        if (missedPollsRef.current >= MAX_MISSED_POLLS) {
+          stopPolling()
+          setLiveMessage(`Phase ${currentPhase} status unavailable`)
+          toast.error(
+            `Phase ${currentPhase} status is no longer available. It may still be running — check the Jobs page.`,
+            { id: `experiment-phase-status-unavailable-${currentPhase}` },
+          )
+        }
+        return
+      }
+      missedPollsRef.current = 0
       if (job.status === 'finished') {
         stopPolling()
+        setLiveMessage(`Phase ${currentPhase} complete`)
         toast.success(`Phase ${currentPhase} complete`)
         await checkStatus()
+        if (currentPhase === 1) {
+          vizAutoTriggeredRef.current = false
+          triggerVisualizationRef.current(true)
+        }
       } else if (job.status === 'failed') {
         stopPolling()
+        setLiveMessage(`Phase ${currentPhase} failed`)
         toast.error(`Phase ${currentPhase} failed — check the Jobs page for logs`)
-      } else if (job.status === 'cancelled') {
+      } else if (job.status === 'canceled' || job.status === 'cancelled') {
+        // RQ returns 'canceled' (US); keep 'cancelled' too so older
+        // deployments or manual status writes still resolve cleanly.
         stopPolling()
+        setLiveMessage(`Phase ${currentPhase} cancelled`)
         toast.info(`Phase ${currentPhase} was cancelled`)
+      } else if (job.status === 'queued') {
+        setPhaseProgress((prev) => ({
+          step: 'Waiting in job queue…',
+          startedAt: prev?.startedAt ?? Date.now(),
+          lastLine: '',
+          logTail: [],
+          percent: prev?.percent ?? 2,
+          detail: 'Waiting for worker',
+        }))
+      } else if (job.status === 'started') {
+        // While the job is actively running, fetch its live log stream
+        // (backend reads job.meta from Redis, updated every stdout line).
+        // Failure here is non-fatal — the phase card will just keep the
+        // previous progress info until the next tick succeeds.
+        try {
+          const logRes = await apiFetch(`/jobs/${jobId}/logs`) as { logs?: string }
+          const logs = logRes.logs || ''
+          const { percent, detail } = derivePhasePercent(logs, currentPhase)
+          setPhaseProgress((prev) => ({
+            step: derivePhaseStep(logs, currentPhase),
+            startedAt: prev?.startedAt ?? Date.now(),
+            lastLine: extractLastLine(logs),
+            logTail: extractLogTail(logs, LOG_TAIL_LINES),
+            percent,
+            detail,
+          }))
+        } catch {
+          // Job just started or meta hasn't been written yet — leave the
+          // existing progress state alone.
+        }
       }
     } catch {
-      // poll failures are silently ignored
+      // Transient poll failures (network hiccup, backend restart) don't
+      // count toward the missed-poll safety net — only a job that's
+      // consistently absent from a successful /jobs response does.
     }
   }
 
@@ -99,15 +304,31 @@ export default function SimulationPage() {
     const attempts = gifPollAttemptsRef.current
     try {
       const res = await fetch(`${API_URL}/experiments/${id}/gifs/output/file`)
-      if (res.ok || attempts >= 20) {
+      if (res.ok) {
         setIsGifPolling(false)
+        setIsVizGenerating(false)
+        gifJobIdRef.current = null
+        setVizError(null)
+        setLiveMessage('Visualization ready')
         await fetchOutput()
-        setIsSubmitting(false)
+        return
+      }
+      if (attempts >= 60) {
+        setIsGifPolling(false)
+        setIsVizGenerating(false)
+        gifJobIdRef.current = null
+        const message =
+          'Visualization timed out. Phase 1 output may be incomplete — open Phase 1 Logs or re-run Phase 1, then try again.'
+        setVizError(message)
+        setLiveMessage('Visualization generation timed out')
       }
     } catch {
-      if (attempts >= 20) {
+      if (attempts >= 60) {
         setIsGifPolling(false)
-        setIsSubmitting(false)
+        setIsVizGenerating(false)
+        gifJobIdRef.current = null
+        setVizError('Visualization failed — check the Jobs page for errors.')
+        setLiveMessage('Visualization generation timed out')
       }
     }
   }
@@ -116,6 +337,7 @@ export default function SimulationPage() {
 
   /* ----------------------------- Status Check ----------------------------- */
   const checkStatus = async () => {
+    setStatusError(null)
     try {
       const [res1, res2] = await Promise.all([
         apiFetch(`/experiments/${id}/has-phase-1`) as Promise<{ data: boolean }>,
@@ -125,7 +347,43 @@ export default function SimulationPage() {
       setHasPhase2(res2.data === true)
     } catch (err) {
       console.error('Failed to check status', err)
-      toast.error(getApiErrorMessage(err, 'Failed to check experiment status'), { id: 'experiment-check-status' })
+      setStatusError(getApiErrorMessage(err, 'Failed to check experiment status'))
+    }
+  }
+
+  /* ---------------------- Resume polling after reload ---------------------- */
+  // If the user reloads or navigates back to this page while a phase is still
+  // queued/running on the backend, pick up polling again instead of showing a
+  // stale "not running" state.
+  const resumePollingIfActive = async () => {
+    try {
+      const jobs = await apiFetch('/jobs') as Array<{
+        job_id: string
+        experiment_id?: number | string | null
+        phase?: string | null
+        status: string
+        created_at?: string | null
+      }>
+      const activeJob = jobs.find(j =>
+        String(j.experiment_id) === String(id) &&
+        (j.phase === '1' || j.phase === '2') &&
+        j.status === 'started'
+      )
+      if (activeJob?.phase === '1' || activeJob?.phase === '2') {
+        const phase = Number(activeJob.phase) as 1 | 2
+        trackedJobIdRef.current = activeJob.job_id
+        // Prefer the job's server-side enqueued_at so the elapsed timer keeps
+        // ticking correctly after a page reload. Fall back to now() if the
+        // timestamp is missing / malformed.
+        const parsedStart = activeJob.created_at
+          ? Date.parse(activeJob.created_at)
+          : NaN
+        const startedAt = Number.isFinite(parsedStart) ? parsedStart : Date.now()
+        startPhasePolling(phase, startedAt)
+      }
+    } catch {
+      // A failed /jobs lookup on mount shouldn't block page load — the user
+      // can still see phase status; polling just won't auto-resume.
     }
   }
 
@@ -153,6 +411,7 @@ export default function SimulationPage() {
     }
     fetchSatConfig()
     checkStatus()
+    resumePollingIfActive()
   }, [id])
 
   useEffect(() => {
@@ -268,14 +527,54 @@ export default function SimulationPage() {
 
   useEffect(() => { fetchOutput() }, [id])
 
-
   /* ----------------------------- Run visualization ----------------------------- */
-  const handleCreateGif = async () => {
-    setIsSubmitting(true)
+  const triggerVisualization = useCallback(async (auto = false) => {
+    if (isVizGenerating || isGifPolling) return
+    if (shellNames.length === 0 || timeSteps.length === 0) return
+
+    if (auto) {
+      if (vizAutoTriggeredRef.current) return
+      vizAutoTriggeredRef.current = true
+    }
+
+    setIsVizGenerating(true)
+    setVizError(null)
     setHasOutput(false)
     setOutputChecked(false)
+    setLiveMessage('Generating visualization')
+
+    // If a globe job for this experiment is already queued or running
+    // (auto-launch raced a manual click, or the page was reloaded mid-render),
+    // attach to it instead of enqueuing a duplicate.
     try {
-      await apiFetch(`/experiments/${id}/create-gif`, {
+      const jobs = await apiFetch('/jobs') as Array<{
+        job_id: string
+        experiment_id?: number | string | null
+        phase?: string | null
+        gif_name?: string | null
+        status: string
+      }>
+      // gif_name distinguishes the globe render ('output') from the animated
+      // GIF job ('output-gif') that gets queued behind every Phase 1 run.
+      const activeGifJob = jobs.find(j =>
+        String(j.experiment_id) === String(id) &&
+        j.phase === 'gif' &&
+        j.gif_name === 'output' &&
+        (j.status === 'queued' || j.status === 'started')
+      )
+      if (activeGifJob) {
+        gifJobIdRef.current = activeGifJob.job_id
+        gifPollAttemptsRef.current = 0
+        setIsGifPolling(true)
+        return
+      }
+    } catch {
+      // /jobs being briefly unreachable shouldn't block the render — fall
+      // through and let the create-gif POST surface any real error.
+    }
+
+    try {
+      const result = await apiFetch(`/experiments/${id}/create-gif`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -292,20 +591,56 @@ export default function SimulationPage() {
           long: 0,
           shells: shellColors,
         }),
-      })
+      }) as PhaseStartResponse
+      gifJobIdRef.current = result?.job_id ?? null
     } catch (err) {
-      toast.error(getApiErrorMessage(err, 'Failed to generate output'), { id: 'experiment-output-generate' })
-      setIsSubmitting(false)
+      const message = getApiErrorMessage(err, 'Failed to generate visualization')
+      setVizError(message)
+      setIsVizGenerating(false)
+      setOutputChecked(true)
+      if (!auto) {
+        toast.error(message, { id: 'experiment-output-generate' })
+      }
       return
     }
-    // Poll every 3 s until the output file appears (max 20 × 3 s = 60 s)
     gifPollAttemptsRef.current = 0
     setIsGifPolling(true)
+  }, [
+    id,
+    isGifPolling,
+    isVizGenerating,
+    shellColors,
+    shellNames.length,
+    timeStepIndex,
+    timeSteps,
+  ])
+
+  triggerVisualizationRef.current = triggerVisualization
+
+  // After Phase 1 output exists, auto-render the globe once config is loaded.
+  useEffect(() => {
+    if (!hasPhase1 || !outputChecked || hasOutput || isGifPolling || isVizGenerating) return
+    if (shellNames.length === 0 || timeSteps.length === 0) return
+    void triggerVisualization(true)
+  }, [
+    hasPhase1,
+    outputChecked,
+    hasOutput,
+    isGifPolling,
+    isVizGenerating,
+    shellNames.length,
+    timeSteps.length,
+    triggerVisualization,
+  ])
+
+  const handleCreateGif = () => {
+    vizAutoTriggeredRef.current = false
+    void triggerVisualization(false)
   }
 
   const handleCreateAniGif = async () => {
     try {
-      setIsSubmitting(true)
+      setIsVizGenerating(true)
       await apiFetch(`/experiments/${id}/create-gif`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -327,7 +662,7 @@ export default function SimulationPage() {
     } catch (err) {
       toast.error(getApiErrorMessage(err, 'Failed to generate output'), { id: 'experiment-output-generate' })
     } finally {
-      setIsSubmitting(false)
+      setIsVizGenerating(false)
     }
   }
 
@@ -343,10 +678,16 @@ export default function SimulationPage() {
 
   const executePhase = async (phase:1|2) => {
     setPhaseOverrideConfirm(null)
+    if (phase === 1) {
+      vizAutoTriggeredRef.current = false
+      setVizError(null)
+    }
+    let phaseStarted = false
     try{
-      setIsSubmitting(true)
+      setIsPhaseSubmitting(true)
       const result = await apiFetch(`/experiments/${id}/phase-${phase}`, {method:'POST'}) as PhaseStartResponse
       trackedJobIdRef.current = result?.job_id ?? null
+      phaseStarted = true
       toast.success(`Phase ${phase} started`)
       if (trackedJobIdRef.current) {
         startPhasePolling(phase)
@@ -358,28 +699,68 @@ export default function SimulationPage() {
       console.error(err)
       toast.error(getApiErrorMessage(err, `Failed to start Phase ${phase}`), { id: `experiment-phase-start-${phase}` })
     }finally{
-      setIsSubmitting(false)
+      setIsPhaseSubmitting(false)
     }
 
-    if (phase === 1) {
-      await apiFetch(`/experiments/${id}/create-gif`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          gif_name: 'output-gif',
-          plot_GSs: true,
-          make_gif: true,
-          plot_in_3D: true,
-          plot_debug: false,
-          plot_only_optimal: false,
-          plot_optimal_orbits: false,
-          center_gif: true,
-          time_step: 0,
-          lat: 0,
-          long: 0,
-          shells: shellColors,
-        }),
-      })
+    if (phase === 1 && phaseStarted) {
+      // Queue the animated GIF behind Phase 1 on the same worker queue.
+      // It's a nice-to-have — its failure must not read as a Phase 1 failure.
+      try {
+        await apiFetch(`/experiments/${id}/create-gif`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            gif_name: 'output-gif',
+            plot_GSs: true,
+            make_gif: true,
+            plot_in_3D: true,
+            plot_debug: false,
+            plot_only_optimal: false,
+            plot_optimal_orbits: false,
+            center_gif: true,
+            time_step: 0,
+            lat: 0,
+            long: 0,
+            shells: shellColors,
+          }),
+        })
+      } catch (err) {
+        console.error('Failed to queue animated GIF job', err)
+      }
+    }
+  }
+
+  /* ----------------------------- Cancel running phase ----------------------------- */
+  const cancelActivePhase = async () => {
+    const jobId = trackedJobIdRef.current
+    if (!jobId || !pollingPhase) return
+    try {
+      await apiFetch(`/jobs/${jobId}/cancel`, { method: 'DELETE' })
+      stopPolling()
+      toast.success(`Phase ${pollingPhase} cancelled`)
+      setLiveMessage(`Phase ${pollingPhase} cancelled`)
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Failed to cancel job'), { id: 'experiment-phase-cancel' })
+    }
+  }
+
+  /* ----------------------------- Cancel running visualization ----------------------------- */
+  const cancelVisualization = async () => {
+    const jobId = gifJobIdRef.current
+    if (!jobId) return
+    try {
+      await apiFetch(`/jobs/${jobId}/cancel`, { method: 'DELETE' })
+      gifJobIdRef.current = null
+      setIsGifPolling(false)
+      setIsVizGenerating(false)
+      // Keep vizAutoTriggeredRef set so the auto-launch effect doesn't
+      // immediately re-queue the job the user just cancelled.
+      vizAutoTriggeredRef.current = true
+      setOutputChecked(true)
+      toast.info('Visualization cancelled')
+      setLiveMessage('Visualization cancelled')
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Failed to cancel visualization'), { id: 'experiment-viz-cancel' })
     }
   }
 
@@ -406,21 +787,37 @@ export default function SimulationPage() {
       <div>
         <Link href="/experiments">
           <Button variant="ghost" className="mb-4">
-            <ArrowLeft className="h-4 w-4 mr-2"/>
+            <ArrowLeft className="h-4 w-4 mr-2" aria-hidden="true"/>
             Back to Experiments
           </Button>
         </Link>
-        <h1 className="text-3xl font-bold">Experiment Pipeline</h1>
+        <h1 className="text-3xl font-bold text-light-text dark:text-dark-text">Experiment Pipeline</h1>
       </div>
+
+      {/* Announces phase / visualization polling transitions to screen readers */}
+      <div role="status" aria-live="polite" className="sr-only">
+        {liveMessage}
+      </div>
+
       {/* ==================== Phase 1 & Phase 2 ==================== */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 border-b pb-8">
+      {statusError ? (
+        <ErrorState
+          title="Failed to check experiment status"
+          message={statusError}
+          onRetry={() => void checkStatus()}
+          className="border-b border-light-border dark:border-dark-border pb-8"
+        />
+      ) : (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 border-b border-light-border dark:border-dark-border pb-8">
         <PhaseCard
-          id={Number(id)}
+          id={id}
           phase={1}
           hasOutput={hasPhase1}
-          isSubmitting={isSubmitting}
+          isSubmitting={isPhaseSubmitting}
           canRun={true}
           isPolling={pollingPhase === 1}
+          progress={pollingPhase === 1 ? phaseProgress : null}
+          onCancel={pollingPhase === 1 ? cancelActivePhase : undefined}
           onRun={() => runPhase(1)}
           onDownload={() => downloadPhaseOutput(1)}
           onLogs={() => openLogs(1)}
@@ -430,23 +827,26 @@ export default function SimulationPage() {
           onCreateAniGif={handleCreateAniGif}
         />
         <PhaseCard
-          id={Number(id)}
+          id={id}
           phase={2}
           hasOutput={hasPhase2}
-          isSubmitting={isSubmitting}
+          isSubmitting={isPhaseSubmitting}
           canRun={hasPhase1}
           isPolling={pollingPhase === 2}
+          progress={pollingPhase === 2 ? phaseProgress : null}
+          onCancel={pollingPhase === 2 ? cancelActivePhase : undefined}
           onRun={() => runPhase(2)}
           onDownload={() => downloadPhaseOutput(2)}
           onLogs={() => openLogs(2)}
           hasMN={hasMN}
         />
       </div>
+      )}
       {/* ==================== Visualization + Controls ==================== */}
       {!hasPhase1 ? (
-        <div className="py-20 flex flex-col items-center justify-center border-2 border-dashed rounded-xl opacity-60">
-          <Play className="h-12 w-12 text-gray-300 mb-4" />
-          <p className="text-lg font-medium text-gray-500 text-center">
+        <div role="status" className="py-20 flex flex-col items-center justify-center border-2 border-dashed border-light-border dark:border-dark-border rounded-xl opacity-60">
+          <Play className="h-12 w-12 text-light-text/30 dark:text-dark-subtext/50 mb-4" aria-hidden="true" />
+          <p className="text-lg font-medium text-light-text/60 dark:text-dark-subtext text-center">
             Simulation will become available <br /> once Phase 1 output is generated.
           </p>
         </div>
@@ -461,8 +861,11 @@ export default function SimulationPage() {
           shellNames={shellNames}
           shellColors={shellColors}
           onShellColorChange={(shell, color) => setShellColors((prev) => ({ ...prev, [shell]: color }))}
-          isSubmitting={isSubmitting}
+          isSubmitting={isVizGenerating}
+          isGenerating={isVizGenerating || isGifPolling}
+          vizError={vizError}
           onCreateGif={handleCreateGif}
+          onCancel={isGifPolling ? cancelVisualization : undefined}
           onDownload={handleDownload}
           shellColorOptions={SHELL_COLORS}
         />

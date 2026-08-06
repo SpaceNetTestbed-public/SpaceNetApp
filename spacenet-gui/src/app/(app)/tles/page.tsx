@@ -6,9 +6,13 @@ import { apiFetch } from '@/lib/api'
 import { getApiErrorMessage } from '@/lib/utils'
 import { toast } from 'sonner'
 import { motion } from 'framer-motion'
-import { Plus, Trash, Search, Eye, Upload } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { Plus, Trash, Search, Eye, Upload, Satellite } from 'lucide-react'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { Input, Textarea } from '@/components/ui/input'
+import { Dialog, DialogHeader, DialogTitle, DialogBody, DialogFooter } from '@/components/ui/dialog'
+import { Skeleton } from '@/components/ui/skeleton'
+import { EmptyState } from '@/components/ui/empty-state'
+import { ErrorState } from '@/components/ui/error-state'
 import type { TLEFile, TLEContent } from '@/types/types'
 
 function TLETableSkeleton() {
@@ -18,13 +22,13 @@ function TLETableSkeleton() {
         <td colSpan={3} className="sr-only">Loading TLE files…</td>
       </tr>
       {Array.from({ length: 4 }).map((_, i) => (
-        <tr key={i} className="animate-pulse">
-          <td className="px-6 py-4"><div className="h-4 bg-light-border dark:bg-dark-border rounded w-32" /></td>
-          <td className="px-6 py-4"><div className="h-4 bg-light-border dark:bg-dark-border rounded w-56" /></td>
+        <tr key={i}>
+          <td className="px-6 py-4"><Skeleton className="h-4 w-32" /></td>
+          <td className="px-6 py-4"><Skeleton className="h-4 w-56" /></td>
           <td className="px-6 py-4">
             <div className="flex gap-2">
-              <div className="h-8 w-8 bg-light-border dark:bg-dark-border rounded" />
-              <div className="h-8 w-8 bg-light-border dark:bg-dark-border rounded" />
+              <Skeleton className="h-8 w-8" />
+              <Skeleton className="h-8 w-8" />
             </div>
           </td>
         </tr>
@@ -34,7 +38,6 @@ function TLETableSkeleton() {
 }
 
 export default function TLEPage() {
-  const router = useRouter()
   const [TLES, setTLES] = useState<TLEFile[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
@@ -56,21 +59,26 @@ export default function TLEPage() {
   const [tleContent, setTleContent] = useState<string | null>(null);
   const [isLoadingContent, setIsLoadingContent] = useState(false);
 
+  const [loadError, setLoadError] = useState<string | null>(null)
+
   // Fetch TLE files
-  useEffect(() => {
-    const loadTLEFiles = async () => {
-      setLoading(true)
-      try {
-        const data = await apiFetch('/tles') as TLEFile[]
-        setTLES(data)
-      } catch (err) {
-        console.error(err)
-        toast.error(getApiErrorMessage(err, 'Failed to load TLE files'), { id: 'tle-files-load' })
-      } finally {
-        setLoading(false)
-      }
+  const loadTLEFiles = async () => {
+    setLoading(true)
+    setLoadError(null)
+    try {
+      const data = await apiFetch('/tles') as TLEFile[]
+      setTLES(data)
+    } catch (err) {
+      console.error(err)
+      setLoadError(getApiErrorMessage(err, 'Failed to load TLE files'))
+    } finally {
+      setLoading(false)
     }
-    loadTLEFiles()
+  }
+
+  useEffect(() => {
+    void loadTLEFiles()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Delete a TLE file
@@ -139,17 +147,18 @@ export default function TLEPage() {
         className="flex flex-col sm:flex-row gap-4 mb-6"
       >
         <div className="sm:mr-auto relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-light-text/40 dark:text-dark-subtext" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-light-text/40 dark:text-dark-subtext" aria-hidden="true" />
           <input
             type="text"
             placeholder="Search TLE files..."
+            aria-label="Search TLE files"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-surface dark:bg-dark-surface text-light-text dark:text-dark-text"
+            className="w-full pl-10 pr-4 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-surface dark:bg-dark-surface text-light-text dark:text-dark-text placeholder:text-light-text/40 dark:placeholder:text-dark-subtext focus:outline-none focus:ring-2 focus:ring-vt-maroon/50"
           />
         </div>
         <Button
-            className="bg-maroon hover:bg-maroon-hover text-white"
+            variant="primary"
             onClick={() => {
               setNewTLEName("");
               setNewTLEDescription("");
@@ -157,7 +166,7 @@ export default function TLEPage() {
               setShowTLEModal(true);
             }}
             >
-            <Plus className="h-4 w-4 mr-2" /> New TLE
+            <Plus className="h-4 w-4 mr-2" aria-hidden="true" /> New TLE
         </Button>
       </motion.div>
 
@@ -225,78 +234,86 @@ export default function TLEPage() {
           </table>
         </div>
 
-        {!loading && filteredFiles.length === 0 && (
-          <div role="status" aria-live="polite" className="text-center py-12 text-light-text/60 dark:text-dark-subtext">
-            No TLE files found.
-          </div>
+        {!loading && loadError && (
+          <ErrorState
+            title="Failed to load TLE files"
+            message={loadError}
+            onRetry={() => void loadTLEFiles()}
+          />
+        )}
+
+        {!loading && !loadError && filteredFiles.length === 0 && (
+          TLES.length === 0 ? (
+            <EmptyState
+              icon={Satellite}
+              title="No TLE files yet"
+              description="Upload or paste Two-Line Element sets to define satellite orbits for your experiments."
+              action={
+                <Button
+                  variant="primary"
+                  onClick={() => {
+                    setNewTLEName("");
+                    setNewTLEDescription("");
+                    setNewTLEContent("");
+                    setShowTLEModal(true);
+                  }}
+                >
+                  <Plus className="h-4 w-4 mr-2" aria-hidden="true" /> New TLE
+                </Button>
+              }
+            />
+          ) : (
+            <EmptyState
+              icon={Search}
+              title="No TLE files match your search"
+              description="Try a different search term."
+              action={
+                <Button variant="secondary" onClick={() => setSearchQuery('')}>
+                  Clear search
+                </Button>
+              }
+            />
+          )
         )}
       </motion.div>
 
       {/* Create Modal */}
-      {showTLEModal && (
-        <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 
-                    bg-black/50 backdrop-blur-sm"
-            onClick={() => setShowTLEModal(false)}
-        >
-            <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.15 }}
-            onClick={(e) => e.stopPropagation()}
-            className="
-                w-full max-w-md rounded-card shadow-xl p-6
-                bg-light-surface dark:bg-dark-surface
-                border border-light-border dark:border-dark-border
-            "
-            >
-            <h2 className="text-2xl font-semibold mb-4 text-light-text dark:text-dark-text">
-                Create TLE File
-            </h2>
-
+      <Dialog open={showTLEModal} onClose={() => setShowTLEModal(false)} className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Create TLE File</DialogTitle>
+        </DialogHeader>
+        <DialogBody>
             <div className="space-y-4">
-                <div>
-                <label className="block text-sm font-medium mb-1 text-light-text dark:text-dark-text">
-                    Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                    type="text"
-                    value={newTLEName}
-                    onChange={(e) => setNewTLEName(e.target.value)}
-                    className="
-                    w-full px-3 py-2 rounded-btn font-mono text-sm
-                    border border-light-border dark:border-dark-border
-                    bg-light-bg dark:bg-dark-bg
-                    text-light-text dark:text-dark-text
-                    focus:outline-none focus:ring-2 focus:ring-maroon/50
-                    "
-                    placeholder="e.g., my_tle"
+                <Input
+                  type="text"
+                  label={<>Name <span className="text-red-500" aria-hidden="true">*</span></>}
+                  value={newTLEName}
+                  onChange={(e) => setNewTLEName(e.target.value)}
+                  required
+                  placeholder="e.g., my_tle"
+                  className="font-mono bg-light-bg dark:bg-dark-bg"
                 />
-                </div>
-                
-                <div>
-                <label className="block text-sm font-medium mb-1 text-light-text dark:text-dark-text">
-                    Description
-                </label>
-                <textarea
+
+                <Textarea
+                  label="Description"
                   rows={2}
                   value={newTLEDescription}
                   onChange={(e) => setNewTLEDescription(e.target.value)}
-                  className="w-full px-3 py-2 rounded-btn font-mono text-sm resize-none border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
+                  className="font-mono resize-none bg-light-bg dark:bg-dark-bg"
                 />
-                </div>
 
                 {/* TLE Content / File Upload */}
                 <div>
-                  <label className="flex items-center justify-between text-sm font-medium mb-1 text-light-text dark:text-dark-text">
-                    <span>TLE Data <span className="text-red-500">*</span></span>
-                    <label className="cursor-pointer text-maroon hover:text-maroon-hover flex items-center gap-1 text-xs">
-                      <Upload className="h-3 w-3" />
+                  <div className="flex items-center justify-between text-sm font-medium mb-1 text-light-text dark:text-dark-text">
+                    <span>TLE Data <span className="text-red-500" aria-hidden="true">*</span></span>
+                    <label className="cursor-pointer text-vt-maroon hover:text-vt-maroon-hover flex items-center gap-1 text-xs">
+                      <Upload className="h-3 w-3" aria-hidden="true" />
                       Upload File
-                      <input 
-                        type="file" 
-                        accept=".txt,.tle" 
-                        className="hidden" 
+                      <input
+                        type="file"
+                        accept=".txt,.tle"
+                        className="hidden"
+                        aria-label="Upload TLE file"
                         onChange={async (e) => {
                           const file = e.target.files?.[0];
                           if (file) {
@@ -309,48 +326,49 @@ export default function TLEPage() {
                           }
                           // Reset input so the same file can be uploaded again if needed
                           e.target.value = '';
-                        }} 
+                        }}
                       />
                     </label>
-                  </label>
-                  <textarea
+                  </div>
+                  <Textarea
                     rows={5}
+                    aria-label="TLE data"
                     value={newTLEContent}
                     onChange={(e) => setNewTLEContent(e.target.value)}
+                    required
                     placeholder="Paste TLE data here or upload a file..."
-                    className="w-full px-3 py-2 rounded-btn font-mono text-xs resize-none border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
+                    className="font-mono text-xs resize-none bg-light-bg dark:bg-dark-bg"
                   />
                 </div>
             </div>
-
-            <div className="flex justify-end gap-2 mt-6">
+        </DialogBody>
+        <DialogFooter>
                 <Button
-                variant="outline"
+                variant="secondary"
                 onClick={() => setShowTLEModal(false)}
-                className="border-light-border dark:border-dark-border text-light-text dark:text-dark-text"
                 >
                 Cancel
                 </Button>
                 <Button
-                className="bg-maroon hover:bg-maroon-hover text-white"
+                variant="primary"
                 disabled={creatingTLE || !newTLEName.trim() || !newTLEContent.trim()}
                 onClick={async () => {
                     setCreatingTLE(true);
                     try {
-                      const data = await apiFetch("/tles", {
+                      await apiFetch("/tles", {
                           method: "POST",
-                          body: JSON.stringify({ 
-                            name: newTLEName.trim(), 
+                          body: JSON.stringify({
+                            name: newTLEName.trim(),
                             description: newTLEDescription.trim(),
                             tle_file: newTLEContent.trim()
                           }),
-                      }) as { gs_file_id: string };
-                      
+                      });
+
                       setShowTLEModal(false);
                       setNewTLEName("");
                       setNewTLEDescription("");
                       setNewTLEContent("");
-                      
+
                       // Refresh the list after successful creation
                       const refreshedData = await apiFetch('/tles') as TLEFile[];
                       setTLES(refreshedData);
@@ -366,45 +384,32 @@ export default function TLEPage() {
                 >
                 {creatingTLE ? "Creating..." : "Create"}
                 </Button>
-            </div>
-            </motion.div>
-        </div>
-      )}
+        </DialogFooter>
+      </Dialog>
 
       {/* View Details Modal */}
-      {showViewModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto"
-          onClick={() => setShowViewModal(false)}
-        >
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.15 }}
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-lg rounded-card shadow-xl p-6 bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border my-8"
-          >
-            <h2 className="text-2xl font-semibold mb-4 text-light-text dark:text-dark-text">
-              View TLE: {viewTLEFile?.name}
-            </h2>
-
+      <Dialog open={showViewModal} onClose={() => setShowViewModal(false)}>
+        <DialogHeader>
+          <DialogTitle>View TLE: {viewTLEFile?.name}</DialogTitle>
+        </DialogHeader>
+        <DialogBody>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1 text-light-text dark:text-dark-text">
+                <p className="block text-sm font-medium mb-1 text-light-text dark:text-dark-text">
                   Description
-                </label>
+                </p>
                 <p className="text-sm text-light-text/80 dark:text-dark-subtext mb-3">
                   {viewTLEFile?.description || "No description provided."}
                 </p>
               </div>
 
               <div>
-                <label className="flex items-center justify-between text-sm font-medium mb-1 text-light-text dark:text-dark-text">
+                <p className="flex items-center justify-between text-sm font-medium mb-1 text-light-text dark:text-dark-text">
                   <span>File Content</span>
-                </label>
-                
+                </p>
+
                 {isLoadingContent ? (
-                  <div role="status" aria-live="polite" className="p-4 text-center text-sm text-light-text/60">
+                  <div role="status" aria-live="polite" className="p-4 text-center text-sm text-light-text/60 dark:text-dark-subtext">
                     Loading content…
                   </div>
                 ) : tleContent ? (
@@ -412,25 +417,19 @@ export default function TLEPage() {
                     {tleContent}
                   </div>
                 ) : (
-                  <div className="p-4 text-center text-sm text-light-text/60">
+                  <div className="p-4 text-center text-sm text-light-text/60 dark:text-dark-subtext">
                     No content available.
                   </div>
                 )}
               </div>
             </div>
-
-            <div className="flex justify-end mt-6">
-              <Button
-                variant="outline"
-                onClick={() => setShowViewModal(false)}
-                className="border-light-border dark:border-dark-border text-light-text dark:text-dark-text"
-              >
-                Close
-              </Button>
-            </div>
-          </motion.div>
-        </div>
-      )}
+        </DialogBody>
+        <DialogFooter>
+          <Button variant="secondary" onClick={() => setShowViewModal(false)}>
+            Close
+          </Button>
+        </DialogFooter>
+      </Dialog>
 
       <ConfirmDialog
         isOpen={deleteConfirm !== null}

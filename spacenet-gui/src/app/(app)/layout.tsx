@@ -9,7 +9,7 @@ export default function AppLayout({
   return (
     <div className="min-h-screen bg-light-bg dark:bg-dark-bg">
       <TopNav />
-      <main className="max-w-[1920px] mx-auto">{children}</main>
+      <div className="max-w-[1920px] mx-auto">{children}</div>
       <FloatingDocsButton />
     </div>
   )

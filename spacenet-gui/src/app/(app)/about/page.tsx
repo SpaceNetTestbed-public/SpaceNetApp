@@ -2,6 +2,7 @@
 
 import { Satellite, FileText, Network, BarChart3, Cloud, Globe, ExternalLink, Github, Mail, BookOpen } from 'lucide-react'
 import { motion } from 'framer-motion'
+import { Card } from '@/components/ui/card'
 
 export default function AboutPage() {
   const features = [
@@ -36,8 +37,9 @@ export default function AboutPage() {
       description: 'ISTN support with Azure and WonderProxy integration options.',
     },
   ]
+  // Hover-lift effect layered on top of the shared Card shell
   const floatingTileClass =
-    'rounded-card bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border transition-transform duration-200 ease-out hover:-translate-y-1 hover:shadow-card-2'
+    'transition-transform duration-200 ease-out hover:-translate-y-1 hover:shadow-card-2'
 
   return (
     <div className="min-h-screen p-6 sm:p-8">
@@ -49,7 +51,7 @@ export default function AboutPage() {
         className="mb-12 text-center"
       >
         <div className="inline-flex items-center justify-center mb-6">
-          <div className="h-20 w-20 rounded-2xl bg-maroon flex items-center justify-center">
+          <div className="h-20 w-20 rounded-2xl bg-vt-maroon flex items-center justify-center">
             <Satellite className="h-10 w-10 text-white" />
           </div>
         </div>
@@ -58,7 +60,7 @@ export default function AboutPage() {
         </h1>
         <p className="text-lg text-light-text/80 dark:text-dark-subtext max-w-3xl mx-auto">
           A production-grade simulation platform for LEO satellite constellation network analysis,
-          {" developed under Virginia Tech's Aerospace & Ocean Engineering department."}
+          developed under Virginia Tech&apos;s Aerospace &amp; Ocean Engineering department.
         </p>
       </motion.div>
 
@@ -70,7 +72,7 @@ export default function AboutPage() {
         className="mb-12"
       >
         <h2 className="text-2xl font-bold text-light-text dark:text-dark-text mb-4">Mission</h2>
-        <div className={`${floatingTileClass} p-8`}>
+        <Card className={`${floatingTileClass} p-8`}>
           <p className="text-base text-light-text/80 dark:text-dark-subtext leading-relaxed mb-4">
             SpaceNet Testbed provides researchers, engineers, and students with a comprehensive
             platform to simulate, emulate, and analyze Low Earth Orbit (LEO) satellite
@@ -83,7 +85,7 @@ export default function AboutPage() {
             enabling detailed analysis of network performance, routing algorithms, and atmospheric
             effects.
           </p>
-        </div>
+        </Card>
       </motion.div>
 
       {/* Key Features */}
@@ -104,9 +106,9 @@ export default function AboutPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, delay: 0.3 + index * 0.05 }}
               >
-                <div className={`${floatingTileClass} p-6 h-full flex flex-col`}>
-                  <div className="h-12 w-12 rounded-xl bg-maroon/20 dark:bg-maroon/30 flex items-center justify-center mb-4">
-                    <Icon className="h-6 w-6 text-maroon dark:text-maroon" />
+                <Card className={`${floatingTileClass} p-6 h-full flex flex-col`}>
+                  <div className="h-12 w-12 rounded-xl bg-vt-maroon/20 dark:bg-vt-maroon/30 flex items-center justify-center mb-4">
+                    <Icon className="h-6 w-6 text-vt-maroon dark:text-vt-maroon" />
                   </div>
                   <h3 className="text-lg font-semibold text-light-text dark:text-dark-text mb-2">
                     {feature.title}
@@ -114,7 +116,7 @@ export default function AboutPage() {
                   <p className="text-sm text-light-text/70 dark:text-dark-subtext leading-relaxed">
                     {feature.description}
                   </p>
-                </div>
+                </Card>
               </motion.div>
             )
           })}
@@ -129,9 +131,9 @@ export default function AboutPage() {
         className="mb-12"
       >
         <h2 className="text-2xl font-bold text-light-text dark:text-dark-text mb-4">Research Group</h2>
-        <div className={`${floatingTileClass} p-8`}>
+        <Card className={`${floatingTileClass} p-8`}>
           <div className="flex items-start gap-6">
-            <div className="h-16 w-16 rounded-full bg-maroon flex items-center justify-center flex-shrink-0">
+            <div className="h-16 w-16 rounded-full bg-vt-maroon flex items-center justify-center flex-shrink-0">
               <span className="text-white text-xl font-bold">VT</span>
             </div>
             <div className="flex-1">
@@ -147,22 +149,22 @@ export default function AboutPage() {
                   href="https://www.aoe.vt.edu"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-maroon hover:text-maroon-hover flex items-center gap-1.5 text-sm font-medium"
+                  className="text-vt-maroon hover:text-vt-maroon-hover flex items-center gap-1.5 text-sm font-medium"
                 >
-                  Department Website <ExternalLink className="h-3.5 w-3.5" />
+                  Department Website <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
                 </a>
                 <a
                   href="https://www.hume.vt.edu"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-maroon hover:text-maroon-hover flex items-center gap-1.5 text-sm font-medium"
+                  className="text-vt-maroon hover:text-vt-maroon-hover flex items-center gap-1.5 text-sm font-medium"
                 >
-                  Hume Center <ExternalLink className="h-3.5 w-3.5" />
+                  Hume Center <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
                 </a>
               </div>
             </div>
           </div>
-        </div>
+        </Card>
       </motion.div>
 
       {/* Technology Stack */}
@@ -173,7 +175,7 @@ export default function AboutPage() {
         className="mb-12"
       >
         <h2 className="text-2xl font-bold text-light-text dark:text-dark-text mb-4">Technology Stack</h2>
-        <div className={`${floatingTileClass} p-8`}>
+        <Card className={`${floatingTileClass} p-8`}>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             <div>
               <h3 className="text-lg font-semibold text-light-text dark:text-dark-text mb-3">Frontend</h3>
@@ -208,7 +210,7 @@ export default function AboutPage() {
               </ul>
             </div>
           </div>
-        </div>
+        </Card>
       </motion.div>
 
       {/* Links & Resources */}
@@ -220,7 +222,7 @@ export default function AboutPage() {
       >
         <h2 className="text-2xl font-bold text-light-text dark:text-dark-text mb-6">Links & Resources</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className={`${floatingTileClass} p-6 flex flex-col items-center text-center`}>
+          <Card className={`${floatingTileClass} p-6 flex flex-col items-center text-center`}>
             <div className="h-12 w-12 rounded-xl bg-light-bg dark:bg-dark-bg flex items-center justify-center mb-4">
               <Github className="h-6 w-6 text-light-text dark:text-dark-text" />
             </div>
@@ -228,8 +230,8 @@ export default function AboutPage() {
             <p className="text-sm text-light-text/70 dark:text-dark-subtext">
               View source code, documentation, and contribute to the project.
             </p>
-          </div>
-          <div className={`${floatingTileClass} p-6 flex flex-col items-center text-center`}>
+          </Card>
+          <Card className={`${floatingTileClass} p-6 flex flex-col items-center text-center`}>
             <div className="h-12 w-12 rounded-xl bg-light-bg dark:bg-dark-bg flex items-center justify-center mb-4">
               <BookOpen className="h-6 w-6 text-light-text dark:text-dark-text" />
             </div>
@@ -237,8 +239,8 @@ export default function AboutPage() {
             <p className="text-sm text-light-text/70 dark:text-dark-subtext">
               Complete guides for YAML configuration, simulation setup, and analysis.
             </p>
-          </div>
-          <div className={`${floatingTileClass} p-6 flex flex-col items-center text-center`}>
+          </Card>
+          <Card className={`${floatingTileClass} p-6 flex flex-col items-center text-center`}>
             <div className="h-12 w-12 rounded-xl bg-light-bg dark:bg-dark-bg flex items-center justify-center mb-4">
               <Mail className="h-6 w-6 text-light-text dark:text-dark-text" />
             </div>
@@ -246,7 +248,7 @@ export default function AboutPage() {
             <p className="text-sm text-light-text/70 dark:text-dark-subtext">
               Questions, feedback, or collaboration inquiries welcome.
             </p>
-          </div>
+          </Card>
         </div>
       </motion.div>
 

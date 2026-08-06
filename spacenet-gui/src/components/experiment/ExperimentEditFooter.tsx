@@ -29,21 +29,21 @@ export function ExperimentEditFooter({
         <span className="text-sm text-light-text/60 dark:text-dark-subtext">Unsaved changes</span>
         <div className="flex gap-2">
           <Link href="/experiments">
-            <Button variant="outline">Cancel</Button>
+            <Button variant="secondary">Cancel</Button>
           </Link>
-          <Button variant="outline" onClick={onRestore} disabled={saving}>
+          <Button variant="secondary" onClick={onRestore} disabled={saving}>
             Restore Changes
           </Button>
-          <Button onClick={onSave} className="bg-maroon hover:bg-maroon-hover text-white" disabled={saving}>
-            <Save className="h-4 w-4 mr-2" />
+          <Button onClick={onSave} variant="primary" disabled={saving}>
+            <Save className="h-4 w-4 mr-2" aria-hidden="true" />
             {saving ? 'Saving...' : 'Save'}
           </Button>
           <Button
-            className="bg-orange-500 hover:bg-orange-600 text-white"
+            className="bg-vt-orange hover:bg-vt-orange-hover active:bg-vt-orange-pressed text-white"
             onClick={onSaveAndRun}
             disabled={saving || savingAndRunning}
           >
-            <Play className="h-4 w-4 mr-2" />
+            <Play className="h-4 w-4 mr-2" aria-hidden="true" />
             {savingAndRunning ? 'Saving...' : 'Save & Run Simulation'}
           </Button>
         </div>

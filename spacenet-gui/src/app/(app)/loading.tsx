@@ -7,7 +7,7 @@ export default function AppLoading() {
     >
       <div className="flex flex-col items-center gap-3">
         <div
-          className="h-10 w-10 rounded-full border-2 border-light-border dark:border-dark-border border-t-maroon animate-spin"
+          className="h-10 w-10 rounded-full border-2 border-light-border dark:border-dark-border border-t-vt-maroon animate-spin"
           aria-hidden="true"
         />
         <p className="text-sm text-light-text/60 dark:text-dark-subtext">Loading…</p>

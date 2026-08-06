@@ -2,7 +2,7 @@
 
 import { SatConfig, ShellConfig } from '@/types/experiment-config'
 import { ShellEditor } from './ShellEditor'
-import { Plus } from 'lucide-react'
+import { AlertTriangle, Plus } from 'lucide-react'
 import { Button } from '../ui/button'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
@@ -121,7 +121,7 @@ export function SatConfigForm({ config, onChange, tleLocked = false }: SatConfig
           <select
             value={config.operator_name}
             onChange={(e) => updateField('operator_name', e.target.value as SatConfig['operator_name'])}
-            className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
+            className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-vt-maroon/50"
           >
             <option value="starlink">Starlink</option>
             <option value="lunar">Lunar (beta testing)</option>
@@ -147,7 +147,7 @@ export function SatConfigForm({ config, onChange, tleLocked = false }: SatConfig
               onChange={(e) =>
                 updateSimLength('TimeStepDuration', parseInt(e.target.value) || SIM_TIME_STEP_DURATION_MIN)
               }
-              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
+              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-vt-maroon/50"
               aria-describedby="sim-duration-hint"
             />
           </div>
@@ -163,7 +163,7 @@ export function SatConfigForm({ config, onChange, tleLocked = false }: SatConfig
               onChange={(e) =>
                 updateSimLength('TimeStepCount', parseInt(e.target.value) || SIM_TIME_STEP_COUNT_MIN)
               }
-              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
+              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-vt-maroon/50"
               aria-describedby="sim-duration-hint"
             />
           </div>
@@ -195,7 +195,7 @@ export function SatConfigForm({ config, onChange, tleLocked = false }: SatConfig
                   updateSimDateTime('StartDay', date.getDate())
                 }
               }}
-              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
+              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-vt-maroon/50"
             />
           </div>
           <div>
@@ -214,7 +214,7 @@ export function SatConfigForm({ config, onChange, tleLocked = false }: SatConfig
                 }
                 className="flex-1 px-3 py-2 rounded-btn border border-light-border dark:border-dark-border
                           bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text
-                          focus:outline-none focus:ring-2 focus:ring-maroon/50"
+                          focus:outline-none focus:ring-2 focus:ring-vt-maroon/50"
               />
 
               {/* Minutes (0–59) */}
@@ -228,7 +228,7 @@ export function SatConfigForm({ config, onChange, tleLocked = false }: SatConfig
                 }
                 className="flex-1 px-3 py-2 rounded-btn border border-light-border dark:border-dark-border
                           bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text
-                          focus:outline-none focus:ring-2 focus:ring-maroon/50"
+                          focus:outline-none focus:ring-2 focus:ring-vt-maroon/50"
               />
 
               {/* Seconds (0–59) */}
@@ -242,7 +242,7 @@ export function SatConfigForm({ config, onChange, tleLocked = false }: SatConfig
                 }
                 className="flex-1 px-3 py-2 rounded-btn border border-light-border dark:border-dark-border
                           bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text
-                          focus:outline-none focus:ring-2 focus:ring-maroon/50"
+                          focus:outline-none focus:ring-2 focus:ring-vt-maroon/50"
               />
             </div>
 
@@ -264,7 +264,7 @@ export function SatConfigForm({ config, onChange, tleLocked = false }: SatConfig
             <select
               value={config.tle_id}
               onChange={(e) => {updateField("tle_id", parseInt(e.target.value) || 0)}}
-              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50 text-sm"
+              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-vt-maroon/50 text-sm"
             >
               <option value={-1}>No Custom</option>
               {tleFiles.map((file) => (
@@ -274,6 +274,15 @@ export function SatConfigForm({ config, onChange, tleLocked = false }: SatConfig
               ))}
             </select>
           </div>
+          {config.generate_TLE === false && (
+            <p className="text-[11px] text-amber-600 dark:text-amber-400 flex items-start gap-1 font-medium" role="status">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" aria-hidden="true" />
+              TLE generation is disabled for this experiment — Phase 1 will load a real
+              TLE file instead of generating orbits from the shells below. If the TLE
+              file&apos;s satellite count doesn&apos;t match the shell configuration, the run
+              will fail.
+            </p>
+          )}
         </div>
       </div>
 
@@ -300,7 +309,7 @@ export function SatConfigForm({ config, onChange, tleLocked = false }: SatConfig
           ))}
           <Button
             type="button"
-            variant="outline"
+            variant="secondary"
             onClick={addShell}
             className="w-full border-dashed"
           >

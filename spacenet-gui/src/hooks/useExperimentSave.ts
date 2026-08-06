@@ -4,6 +4,7 @@ import { apiFetch } from '@/lib/api'
 import { getApiErrorMessage } from '@/lib/utils'
 import { toast } from 'sonner'
 import { validateExperimentConfig } from '@/lib/experiment-validation'
+import { shellsToNamedRecord } from '@/lib/yaml'
 
 interface UseExperimentSaveProps {
   id: string
@@ -34,8 +35,10 @@ export function useExperimentSave({ id, appName, onSuccess }: UseExperimentSaveP
         const { TLEFilePath, generate_TLE, ...rest } = config.satConfig
         return {
           ...rest,
+          // shellsToNamedRecord keys by shellN — the simulator rejects the
+          // numeric keys Object.entries would produce from the shells array.
           shells: Object.fromEntries(
-            Object.entries(rest.shells ?? {}).map(([key, shell]) => {
+            Object.entries(shellsToNamedRecord(rest.shells)).map(([key, shell]) => {
               if (shell.perturber === 'None') {
                 const { perturber, ...shellWithoutPerturber } = shell
                 return [key, shellWithoutPerturber]

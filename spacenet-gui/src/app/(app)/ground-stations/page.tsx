@@ -6,10 +6,15 @@ import { apiFetch } from '@/lib/api'
 import { getApiErrorMessage } from '@/lib/utils'
 import { toast } from 'sonner'
 import { motion } from 'framer-motion'
-import { Plus, Trash, Search, Edit } from 'lucide-react'
+import { Plus, Trash, Search, Edit, RadioTower } from 'lucide-react'
 import Link from "next/link"
 import { useRouter } from 'next/navigation'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { Input } from '@/components/ui/input'
+import { Dialog, DialogHeader, DialogTitle, DialogBody, DialogFooter } from '@/components/ui/dialog'
+import { Skeleton } from '@/components/ui/skeleton'
+import { EmptyState } from '@/components/ui/empty-state'
+import { ErrorState } from '@/components/ui/error-state'
 
 interface GroundStationFile {
   id: number
@@ -24,13 +29,13 @@ function GSTableSkeleton() {
         <td colSpan={3} className="sr-only">Loading ground station files…</td>
       </tr>
       {Array.from({ length: 4 }).map((_, i) => (
-        <tr key={i} className="animate-pulse">
-          <td className="px-6 py-4"><div className="h-4 bg-light-border dark:bg-dark-border rounded w-40" /></td>
-          <td className="px-6 py-4"><div className="h-4 bg-light-border dark:bg-dark-border rounded w-12" /></td>
+        <tr key={i}>
+          <td className="px-6 py-4"><Skeleton className="h-4 w-40" /></td>
+          <td className="px-6 py-4"><Skeleton className="h-4 w-12" /></td>
           <td className="px-6 py-4">
             <div className="flex gap-2">
-              <div className="h-8 w-8 bg-light-border dark:bg-dark-border rounded" />
-              <div className="h-8 w-8 bg-light-border dark:bg-dark-border rounded" />
+              <Skeleton className="h-8 w-8" />
+              <Skeleton className="h-8 w-8" />
             </div>
           </td>
         </tr>
@@ -51,21 +56,26 @@ export default function GroundStationsPage() {
   const [isDeleting, setIsDeleting] = useState(false);
 
 
+  const [loadError, setLoadError] = useState<string | null>(null)
+
   // Fetch ground station files
-  useEffect(() => {
-    const loadGSFiles = async () => {
-      setLoading(true)
-      try {
-        const data = await apiFetch('/ground_station_file') as GroundStationFile[]
-        setGsFiles(data)
-      } catch (err) {
-        console.error(err)
-        toast.error(getApiErrorMessage(err, 'Failed to load ground station files'), { id: 'gs-files-load' })
-      } finally {
-        setLoading(false)
-      }
+  const loadGSFiles = async () => {
+    setLoading(true)
+    setLoadError(null)
+    try {
+      const data = await apiFetch('/ground_station_file') as GroundStationFile[]
+      setGsFiles(data)
+    } catch (err) {
+      console.error(err)
+      setLoadError(getApiErrorMessage(err, 'Failed to load ground station files'))
+    } finally {
+      setLoading(false)
     }
-    loadGSFiles()
+  }
+
+  useEffect(() => {
+    void loadGSFiles()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Delete a ground station file
@@ -115,20 +125,21 @@ export default function GroundStationsPage() {
         className="flex flex-col sm:flex-row gap-4 mb-6"
       >
         <div className="sm:mr-auto relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-light-text/40 dark:text-dark-subtext" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-light-text/40 dark:text-dark-subtext" aria-hidden="true" />
           <input
             type="text"
             placeholder="Search ground station files..."
+            aria-label="Search ground station files"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-surface dark:bg-dark-surface text-light-text dark:text-dark-text"
+            className="w-full pl-10 pr-4 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-surface dark:bg-dark-surface text-light-text dark:text-dark-text placeholder:text-light-text/40 dark:placeholder:text-dark-subtext focus:outline-none focus:ring-2 focus:ring-vt-maroon/50"
           />
         </div>
         <Button
-            className="bg-maroon hover:bg-maroon-hover text-white"
+            variant="primary"
             onClick={() => setShowGSModal(true)}
             >
-            <Plus className="h-4 w-4 mr-2" /> New File
+            <Plus className="h-4 w-4 mr-2" aria-hidden="true" /> New File
         </Button>
       </motion.div>
 
@@ -192,98 +203,84 @@ export default function GroundStationsPage() {
           </table>
         </div>
 
-        {!loading && filteredFiles.length === 0 && (
-          <div role="status" aria-live="polite" className="text-center py-12 text-light-text/60 dark:text-dark-subtext">
-            No ground station files found.
-          </div>
+        {!loading && loadError && (
+          <ErrorState
+            title="Failed to load ground station files"
+            message={loadError}
+            onRetry={() => void loadGSFiles()}
+          />
+        )}
+
+        {!loading && !loadError && filteredFiles.length === 0 && (
+          gsFiles.length === 0 ? (
+            <EmptyState
+              icon={RadioTower}
+              title="No ground station files yet"
+              description="Create a file to define the ground stations your experiments can link to."
+              action={
+                <Button variant="primary" onClick={() => setShowGSModal(true)}>
+                  <Plus className="h-4 w-4 mr-2" aria-hidden="true" /> New File
+                </Button>
+              }
+            />
+          ) : (
+            <EmptyState
+              icon={Search}
+              title="No files match your search"
+              description="Try a different search term."
+              action={
+                <Button variant="secondary" onClick={() => setSearchQuery('')}>
+                  Clear search
+                </Button>
+              }
+            />
+          )
         )}
       </motion.div>
-      {showGSModal && (
-        <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 
-                    bg-black/50 backdrop-blur-sm"
-            onClick={() => setShowGSModal(false)}
-        >
-            <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.15 }}
-            onClick={(e) => e.stopPropagation()}
-            className="
-                w-full max-w-md rounded-card shadow-xl p-6
-                bg-light-surface dark:bg-dark-surface
-                border border-light-border dark:border-dark-border
-            "
-            >
-            {/* Title */}
-            <h2 className="text-2xl font-semibold mb-4 text-light-text dark:text-dark-text">
-                Create Ground Station File
-            </h2>
-
-            {/* Fields */}
-            <div className="space-y-4">
-                {/* Name */}
-                <div>
-                <label className="block text-sm font-medium mb-1 text-light-text dark:text-dark-text">
-                    Name <span className="text-red-500">*</span>
-                </label>
-
-                <input
-                    type="text"
-                    value={newGSName}
-                    onChange={(e) => setNewGSName(e.target.value)}
-                    className="
-                    w-full px-3 py-2 rounded-btn font-mono text-sm
-                    border border-light-border dark:border-dark-border
-                    bg-light-bg dark:bg-dark-bg
-                    text-light-text dark:text-dark-text
-                    focus:outline-none focus:ring-2 focus:ring-maroon/50
-                    "
-                    placeholder="e.g., my_ground_stations"
-                />
-                </div>
-            </div>
-
-            {/* Buttons */}
-            <div className="flex justify-end gap-2 mt-6">
-                <Button
-                variant="outline"
-                onClick={() => setShowGSModal(false)}
-                className="
-                    border-light-border dark:border-dark-border
-                    text-light-text dark:text-dark-text
-                "
-                >
-                Cancel
-                </Button>
-
-                <Button
-                className="bg-maroon hover:bg-maroon-hover text-white"
-                disabled={creatingGS || !newGSName.trim()}
-                onClick={async () => {
-                    setCreatingGS(true);
-                    try {
-                      const data = await apiFetch("/ground_station_file", {
-                          method: "POST",
-                          body: JSON.stringify({ name: newGSName.trim() }),
-                      }) as { gs_file_id: string };
-                      setShowGSModal(false);
-                      setNewGSName("");
-                      router.push(`/ground-stations/${data.gs_file_id}`)
-                    } catch (err) {
-                      console.error(err);
-                      toast.error(getApiErrorMessage(err, 'Failed to create ground station file'), { id: 'gs-file-create' })
-                    } finally {
-                      setCreatingGS(false);
-                    }
-                }}
-                >
-                {creatingGS ? "Creating..." : "Create"}
-                </Button>
-            </div>
-            </motion.div>
-        </div>
-        )}
+      <Dialog open={showGSModal} onClose={() => setShowGSModal(false)} className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Create Ground Station File</DialogTitle>
+        </DialogHeader>
+        <DialogBody>
+          <Input
+            type="text"
+            label={<>Name <span className="text-red-500" aria-hidden="true">*</span></>}
+            value={newGSName}
+            onChange={(e) => setNewGSName(e.target.value)}
+            required
+            placeholder="e.g., my_ground_stations"
+            className="font-mono bg-light-bg dark:bg-dark-bg"
+          />
+        </DialogBody>
+        <DialogFooter>
+          <Button variant="secondary" onClick={() => setShowGSModal(false)}>
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            disabled={creatingGS || !newGSName.trim()}
+            onClick={async () => {
+              setCreatingGS(true);
+              try {
+                const data = await apiFetch("/ground_station_file", {
+                    method: "POST",
+                    body: JSON.stringify({ name: newGSName.trim() }),
+                }) as { gs_file_id: string };
+                setShowGSModal(false);
+                setNewGSName("");
+                router.push(`/ground-stations/${data.gs_file_id}`)
+              } catch (err) {
+                console.error(err);
+                toast.error(getApiErrorMessage(err, 'Failed to create ground station file'), { id: 'gs-file-create' })
+              } finally {
+                setCreatingGS(false);
+              }
+            }}
+          >
+            {creatingGS ? "Creating..." : "Create"}
+          </Button>
+        </DialogFooter>
+      </Dialog>
 
       <ConfirmDialog
         isOpen={deleteConfirm !== null}

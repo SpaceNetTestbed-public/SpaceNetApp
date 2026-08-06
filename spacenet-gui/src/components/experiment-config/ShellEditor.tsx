@@ -40,7 +40,7 @@ export function ShellEditor({ shell, index, onChange, onRemove, canRemove }: She
         <div className="flex items-center gap-3">
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="flex items-center gap-2 text-light-text dark:text-dark-text hover:text-maroon dark:hover:text-maroon transition-colors"
+            className="flex items-center gap-2 text-light-text dark:text-dark-text hover:text-vt-maroon dark:hover:text-vt-maroon transition-colors"
           >
             {isExpanded ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
             <span className="font-semibold">{shell.name}</span>
@@ -66,7 +66,7 @@ export function ShellEditor({ shell, index, onChange, onRemove, canRemove }: She
               max={MAX_ORBITS}
               value={shell.orbits}
               onChange={(e) => updateField('orbits', parseInt(e.target.value) || 1)}
-              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
+              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-vt-maroon/50"
             />
           </div>
 
@@ -80,7 +80,7 @@ export function ShellEditor({ shell, index, onChange, onRemove, canRemove }: She
               max={MAX_SATS_PER_ORBIT}
               value={shell.sat_per_orbit}
               onChange={(e) => updateField('sat_per_orbit', parseInt(e.target.value) || 1)}
-              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
+              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-vt-maroon/50"
             />
           </div>
 
@@ -95,7 +95,7 @@ export function ShellEditor({ shell, index, onChange, onRemove, canRemove }: She
               step="1"
               value={shell.altitude}
               onChange={(e) => updateField('altitude', parseFloat(e.target.value) || 200)}
-              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
+              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-vt-maroon/50"
               aria-invalid={shell.altitude < ALTITUDE_MIN_KM || shell.altitude > ALTITUDE_MAX_KM}
             />
             <p className="text-xs text-light-text/60 dark:text-dark-subtext mt-1">
@@ -114,7 +114,7 @@ export function ShellEditor({ shell, index, onChange, onRemove, canRemove }: She
               step="0.1"
               value={shell.inclination}
               onChange={(e) => updateField('inclination', parseFloat(e.target.value) || 0)}
-              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
+              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-vt-maroon/50"
               aria-invalid={shell.inclination < INCLINATION_MIN_DEG || shell.inclination > INCLINATION_MAX_DEG}
             />
             <p className="text-xs text-light-text/60 dark:text-dark-subtext mt-1">
@@ -129,7 +129,7 @@ export function ShellEditor({ shell, index, onChange, onRemove, canRemove }: She
             <select
               value={shell.pattern}
               onChange={(e) => updateField('pattern', e.target.value as ShellConfig['pattern'])}
-              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
+              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-vt-maroon/50"
             >
               <option value="walker_delta">walker_delta</option>
               <option value="walker_star">walker_star</option>
@@ -147,7 +147,7 @@ export function ShellEditor({ shell, index, onChange, onRemove, canRemove }: She
               max={360}
               value={shell.ipp_increment}
               onChange={(e) => updateField('ipp_increment', parseInt(e.target.value) || IPP_INCREMENT_MIN)}
-              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
+              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-vt-maroon/50"
             />
           </div>
 
@@ -158,7 +158,7 @@ export function ShellEditor({ shell, index, onChange, onRemove, canRemove }: She
             <select
               value={shell.body}
               onChange={(e) => updateField('body', e.target.value as ShellConfig['body'])}
-              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
+              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-vt-maroon/50"
             >
               <option value="Earth">Earth</option>
               <option value="Moon">Moon</option>
@@ -172,7 +172,7 @@ export function ShellEditor({ shell, index, onChange, onRemove, canRemove }: She
             <select
               value={perturber}
               onChange={(e) => updateField('perturber', e.target.value as ShellConfig['perturber'])}
-              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
+              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-vt-maroon/50"
             >
               <option value="Earth">Earth</option>
               <option value="Moon">Moon</option>

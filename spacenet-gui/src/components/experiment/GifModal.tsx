@@ -25,7 +25,7 @@ export function GifModal({ isOpen, gifUrl, onClose }: GifModalProps) {
           <img src={gifUrl} alt="Simulation GIF" className="max-h-[600px] w-auto rounded-md" />
         </div>
         <div className="flex justify-end mt-4">
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="secondary" onClick={onClose}>
             Close
           </Button>
         </div>

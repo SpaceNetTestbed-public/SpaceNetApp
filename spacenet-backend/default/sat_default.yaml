@@ -2,14 +2,18 @@ operator_name: starlink
 Sim_Length:
   TimeStepDuration: 10
   TimeStepCount: 12
+# NOTE: keep this date away from the timestamps of the real TLE files bundled
+# in dynamic-topology-generator/utils/starlink_tles/ — the TLE generator
+# appends to starlink_<sim_ts>, and a colliding date mixes generated TLEs
+# into a real file, crashing Phase 1 with a satellite-count mismatch.
 Sim_Date_Time:
-  StartYear: 2024
-  StartMonth: 9
-  StartDay: 27
-  StartHour: 22
-  StartMinute: 15
-  StartSecond: 6
-generate_TLE: false
+  StartYear: 2025
+  StartMonth: 1
+  StartDay: 1
+  StartHour: 0
+  StartMinute: 0
+  StartSecond: 0
+generate_TLE: true
 shells:
   shell1:
     name: shell1

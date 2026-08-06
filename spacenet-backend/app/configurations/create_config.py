@@ -3,6 +3,7 @@ from jsonschema import validate, ValidationError
 from datetime import datetime, timedelta
 import json
 import os
+import re
 
 SAT_FILE = 'sat_config.yaml'
 MAIN_FILE = 'main_config.yaml'
@@ -19,7 +20,23 @@ def add_sat_defaults(sat_config):
     sat_config["TLEFilePath"] = TLE_FILE_PATH
     return sat_config
 
+def normalize_shell_keys(sat_config: dict) -> dict:
+    """The simulators hardcode shellN keys ("shell1", …). Configs saved by
+    older GUI builds keyed shells by array index ("0", "1", …) — re-key them
+    here so every write path produces simulator-compatible names."""
+    shells = sat_config.get("shells")
+    if isinstance(shells, list):
+        sat_config["shells"] = {f"shell{i + 1}": shell for i, shell in enumerate(shells)}
+    elif isinstance(shells, dict) and any(
+        not re.fullmatch(r"shell[0-9]+", str(key)) for key in shells
+    ):
+        sat_config["shells"] = {
+            f"shell{i + 1}": shell for i, shell in enumerate(shells.values())
+        }
+    return sat_config
+
 def create_sat_config(experiment_id, sat_config ):
+    sat_config = normalize_shell_keys(sat_config)
     # sat_config = add_sat_defaults(sat_config)
     
     try:
@@ -40,19 +57,26 @@ def create_sat_config(experiment_id, sat_config ):
 
     # edit this logic to include custom tle.
     sat_config['generate_TLE'] = True
-    tles_dir = os.path.join(sat_config["TLEFilePath"], f"{sat_config['operator_name']}_tles")
-    if os.path.isdir(tles_dir):
-        for filename in os.listdir(tles_dir):
-            name, _ = os.path.splitext(filename)
-            l = name.split('_')
-            if len(l) < 2:
-                continue
-            if not l[1].isdigit():
-                continue
-            file_ts = int(l[1])
-            file_dt = datetime.fromtimestamp(file_ts)
-            if min_dt <= file_dt <= max_dt:
-                sat_config['generate_TLE'] = False
+    # Only look for a real TLE file matching the sim date when a custom TLE
+    # was explicitly selected (update_sat points TLEFilePath into the
+    # experiment workspace in that case). The default utils/ path ships real
+    # Starlink TLE files whose dates can coincide with the sim start date and
+    # silently flip generate_TLE off — Phase 1 then loads thousands of real
+    # satellites against a small custom shell config and crashes (IndexError).
+    if sat_config.get("TLEFilePath") != TLE_FILE_PATH:
+        tles_dir = os.path.join(sat_config["TLEFilePath"], f"{sat_config['operator_name']}_tles")
+        if os.path.isdir(tles_dir):
+            for filename in os.listdir(tles_dir):
+                name, _ = os.path.splitext(filename)
+                l = name.split('_')
+                if len(l) < 2:
+                    continue
+                if not l[1].isdigit():
+                    continue
+                file_ts = int(l[1])
+                file_dt = datetime.fromtimestamp(file_ts)
+                if min_dt <= file_dt <= max_dt:
+                    sat_config['generate_TLE'] = False
 
     if not validateConfig(sat_config, sat_config_schema):
         raise ValidationError("Satellite configuration is invalid")
