@@ -361,10 +361,11 @@ export default function ExperimentsPage() {
             variant="ghost"
             size="sm"
             className="h-9 w-9 p-0"
-            aria-label="Open documentation"
-            onClick={() => setDocsOpen(true)}
+            style={{marginTop: '3px'}}
+            aria-label="Sync Experiments Folder"
+            onClick={() => syncExperimentsFolder()}
           >
-            <BookOpen className="h-4 w-4" aria-hidden="true" />
+            <RefreshCw className="h-4 w-4" aria-hidden="true" />
           </Button>
         </div> */}
       </motion.div>

@@ -7,6 +7,7 @@ export interface Experiment {
   created_at?: string
   hasPhase1: boolean
   hasPhase2: boolean
+  hasExperiment: boolean
 }
 
 export interface ExperimentGroup {
