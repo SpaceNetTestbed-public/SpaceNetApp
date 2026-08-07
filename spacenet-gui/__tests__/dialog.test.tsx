@@ -4,6 +4,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Dialog, DialogHeader, DialogTitle, DialogBody, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 
 jest.mock('framer-motion', () => ({
   motion: {
@@ -92,5 +93,32 @@ describe('Dialog', () => {
     const { onClose } = renderDialog()
     await user.click(screen.getByRole('button', { name: 'Close dialog' }))
     expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  // Regression: the focus/Escape effect used to list onClose in its deps. Every
+  // caller passes an inline arrow, so each keystroke re-ran the effect and moved
+  // focus to the panel — inputs accepted one character at a time.
+  it('keeps focus in a dialog input while typing, with an inline onClose', async () => {
+    function Harness() {
+      const [open, setOpen] = React.useState(true)
+      const [name, setName] = React.useState('')
+      return (
+        <Dialog open={open} onClose={() => setOpen(false)}>
+          <DialogBody>
+            <Input label="Name" value={name} onChange={(e) => setName(e.target.value)} />
+          </DialogBody>
+        </Dialog>
+      )
+    }
+
+    const user = userEvent.setup()
+    render(<Harness />)
+
+    const input = screen.getByLabelText('Name')
+    await user.click(input)
+    await user.keyboard('test')
+
+    expect(input).toHaveValue('test')
+    expect(document.activeElement).toBe(input)
   })
 })

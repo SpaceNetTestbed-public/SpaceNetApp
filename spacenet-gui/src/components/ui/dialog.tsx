@@ -32,6 +32,14 @@ function Dialog({ open, onClose, children, className }: DialogProps) {
   const panelRef = React.useRef<HTMLDivElement | null>(null)
   const previousFocusRef = React.useRef<HTMLElement | null>(null)
 
+  // Callers pass onClose as an inline arrow, so its identity changes on every
+  // parent render. Keeping it in the effect's dep list re-ran the focus setup
+  // on each keystroke, moving focus out of whatever input was being typed in.
+  const onCloseRef = React.useRef(onClose)
+  React.useEffect(() => {
+    onCloseRef.current = onClose
+  })
+
   React.useEffect(() => {
     if (!open) return
     previousFocusRef.current = document.activeElement as HTMLElement | null
@@ -40,7 +48,7 @@ function Dialog({ open, onClose, children, className }: DialogProps) {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault()
-        onClose()
+        onCloseRef.current()
       }
     }
     window.addEventListener('keydown', handleKeyDown)
@@ -48,7 +56,7 @@ function Dialog({ open, onClose, children, className }: DialogProps) {
       window.removeEventListener('keydown', handleKeyDown)
       previousFocusRef.current?.focus()
     }
-  }, [open, onClose])
+  }, [open])
 
   if (!open) return null
 
