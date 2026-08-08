@@ -26,6 +26,10 @@ from app.models.experiment import Experiment
 # hundreds of runs. Frontend sorts what it gets — most recent surfaces last.
 TERMINAL_JOB_LIMIT = 50
 
+# Statuses eligible for history deletion. 'stopped' is what RQ assigns after
+# a kill-horse cancel of a running job, and it lands in FailedJobRegistry.
+TERMINAL_JOB_STATUSES = {"finished", "failed", "canceled", "stopped"}
+
 # way to queue a task
 # way to access whats in your queue (including the one that is running)
 # way to cancel item in queue (including the one running)
@@ -401,6 +405,55 @@ def get_job_logs(job_id):
         return jsonify({"job_id": job.id, "logs": logs}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 404
+
+@bp.delete("/jobs/<job_id>")
+def delete_job(job_id: str):
+    """
+    Delete a terminal (finished / failed / canceled) job from history
+    ---
+    tags:
+      - Jobs
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: job_id
+        type: string
+        required: true
+    responses:
+      200:
+        description: Job deleted from history
+      404:
+        description: Job not found
+      409:
+        description: Job is still queued or running — cancel it first
+    """
+    conn = redis_client.client
+    try:
+        job = Job.fetch(job_id, connection=conn)
+    except NoSuchJobError:
+        return jsonify({"error": "Job not found"}), 404
+
+    status = job.get_status()
+    if status not in TERMINAL_JOB_STATUSES:
+        return jsonify({
+            "error": f"Job is '{status}' — only finished, failed, or canceled "
+                     "jobs can be deleted. Cancel it first via "
+                     "DELETE /jobs/<job_id>/cancel."
+        }), 409
+
+    try:
+        # RQ's Job.delete() removes the job hash from Redis and pulls the id
+        # out of whichever registry currently holds it (Finished / Failed /
+        # Canceled), so the /jobs listing stops reporting it — no explicit
+        # registry.remove() needed.
+        job.delete()
+    except Exception as e:
+        current_app.logger.error(f"Error deleting job {job_id}: {e}")
+        return jsonify({"error": str(e)}), 500
+
+    return jsonify({"status": "deleted", "job_id": job_id}), 200
+
 
 @bp.delete("/jobs/<job_id>/cancel")
 def cancel_job(job_id):

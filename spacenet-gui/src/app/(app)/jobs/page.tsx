@@ -2,9 +2,10 @@
 
 import { useState, useMemo, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Search, FileText, CheckCircle2, Clock, PlayCircle, XCircle, Loader2, ListChecks, type LucideIcon } from 'lucide-react'
+import { ArrowLeft, Search, FileText, CheckCircle2, Clock, PlayCircle, XCircle, Loader2, ListChecks, Trash2, type LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge, type BadgeVariant } from '@/components/ui/badge'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Dialog, DialogHeader, DialogTitle, DialogBody } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -31,6 +32,14 @@ interface JobItem {
   phase: string
   args: unknown[]
 }
+
+// Statuses the backend allows history deletion for (see the status strings
+// handled in getStatusBadge below; 'stopped' is RQ's status after a
+// kill-horse cancel of a running job).
+const TERMINAL_JOB_STATUSES = ['finished', 'failed', 'canceled', 'cancelled', 'stopped']
+
+const isTerminalJob = (job: JobItem) =>
+  !job.running && TERMINAL_JOB_STATUSES.includes(job.status)
 
 function JobTableSkeleton() {
   return (
@@ -60,6 +69,8 @@ export default function JobQueuePage() {
   const [logs, setLogs] = useState("")
   const [loadingLogsJobId, setLoadingLogsJobId] = useState<string | null>(null)
   const [cancelingJobId, setCancelingJobId] = useState<string | null>(null)
+  const [jobPendingDelete, setJobPendingDelete] = useState<JobItem | null>(null)
+  const [deletingJob, setDeletingJob] = useState(false)
 
   // Fetch queue items on mount & poll every 5s (pauses while the tab is hidden)
   const isMountedRef = useRef(true)
@@ -167,6 +178,25 @@ export default function JobQueuePage() {
       toast.error(getApiErrorMessage(err, 'Failed to cancel job'), { id: 'job-cancel' })
     } finally {
       setCancelingJobId(null)
+    }
+  }
+
+  const deleteJob = async () => {
+    if (!jobPendingDelete || deletingJob) return
+    const job = jobPendingDelete
+    setDeletingJob(true)
+    try {
+      await apiFetch(`/jobs/${job.job_id}`, { method: 'DELETE' })
+      // Drop the row locally — the backend no longer returns it, so the
+      // next poll stays consistent without a full reload.
+      setJobs((prev) => prev.filter((j) => j.job_id !== job.job_id))
+      setJobPendingDelete(null)
+      toast.success(`Job for ${job.experiment_name} removed from history`)
+    } catch (err) {
+      console.error(err)
+      toast.error(getApiErrorMessage(err, 'Failed to delete job'), { id: 'job-delete' })
+    } finally {
+      setDeletingJob(false)
     }
   }
 
@@ -329,6 +359,20 @@ export default function JobQueuePage() {
                         )}
                         </Button>
                     )}
+
+                    {/* Delete-from-history button (terminal statuses only —
+                        queued/running jobs must be canceled first) */}
+                    {isTerminalJob(job) && (
+                        <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 px-2 text-red-500 hover:text-red-600"
+                        onClick={() => setJobPendingDelete(job)}
+                        aria-label={`Delete job for ${job.experiment_name} from history`}
+                        >
+                        <Trash2 className="h-4 w-4" aria-hidden="true" />
+                        </Button>
+                    )}
                   </td>
 
                 </motion.tr>
@@ -366,6 +410,20 @@ export default function JobQueuePage() {
           )
         )}
       </motion.div>
+
+      {/* Delete-from-history confirmation */}
+      <ConfirmDialog
+        isOpen={jobPendingDelete !== null}
+        title="Delete job from history"
+        message={`Permanently remove this ${jobPendingDelete?.status ?? ''} job for "${jobPendingDelete?.experiment_name ?? ''}" from the job list? This cannot be undone.`}
+        confirmLabel="Delete"
+        confirmLoadingLabel="Deleting…"
+        cancelLabel="Cancel"
+        variant="danger"
+        isConfirming={deletingJob}
+        onConfirm={deleteJob}
+        onCancel={() => setJobPendingDelete(null)}
+      />
 
       {/* Logs Modal */}
       <Dialog open={selectedJob !== null} onClose={() => setSelectedJob(null)} className="max-w-2xl max-h-[80vh] flex flex-col">
