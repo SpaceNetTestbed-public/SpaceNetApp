@@ -186,13 +186,23 @@ export function SatConfigForm({ config, onChange, tleLocked = false }: SatConfig
             </label>
             <input
               type="date"
-              value={`${config.Sim_Date_Time.StartYear}-${String(config.Sim_Date_Time.StartMonth).padStart(2, '0')}-${String(config.Sim_Date_Time.StartDay).padStart(2, '0')}`}
+              value={`${String(config.Sim_Date_Time.StartYear).padStart(4, '0')}-${String(config.Sim_Date_Time.StartMonth).padStart(2, '0')}-${String(config.Sim_Date_Time.StartDay).padStart(2, '0')}`}
               onChange={(e) => {
-                const date = new Date(e.target.value)
-                if (!isNaN(date.getTime())) {
-                  updateSimDateTime('StartYear', date.getFullYear())
-                  updateSimDateTime('StartMonth', date.getMonth() + 1)
-                  updateSimDateTime('StartDay', date.getDate())
+                // Parse the YYYY-MM-DD string directly (new Date() would parse it
+                // as UTC and shift the day in negative-offset timezones) and commit
+                // year/month/day in ONE update — three sequential updateSimDateTime
+                // calls each spread the stale config, so only the last field stuck.
+                const [year, month, day] = e.target.value.split('-').map(Number)
+                if (year && month && day) {
+                  onChange({
+                    ...config,
+                    Sim_Date_Time: {
+                      ...config.Sim_Date_Time,
+                      StartYear: year,
+                      StartMonth: month,
+                      StartDay: day,
+                    },
+                  })
                 }
               }}
               className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-vt-maroon/50"
@@ -256,6 +266,31 @@ export function SatConfigForm({ config, onChange, tleLocked = false }: SatConfig
           TLE File Options
         </h3>
         <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <label className="block text-sm font-medium text-light-text dark:text-dark-text mb-1.5">
+                Generate Custom TLEs
+              </label>
+              <p className="text-xs text-light-text/60 dark:text-dark-subtext">
+                {config.tle_id !== -1
+                  ? 'Unavailable while a custom TLE file is selected — Phase 1 uses the uploaded file.'
+                  : tleLocked
+                    ? 'Locked because this experiment has already been run.'
+                    : 'Generate synthetic TLEs from the shell configuration below instead of loading a TLE file.'}
+              </p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={config.generate_TLE === true}
+                disabled={tleLocked || config.tle_id !== -1}
+                onChange={(e) => updateField('generate_TLE', e.target.checked)}
+                className="sr-only peer"
+                aria-label="Generate custom TLEs"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-vt-maroon/20 dark:peer-focus:ring-vt-maroon/30 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-vt-maroon peer-disabled:opacity-50 peer-disabled:cursor-not-allowed"></div>
+            </label>
+          </div>
           <div>
             <label className="block text-sm font-medium text-light-text dark:text-dark-text mb-1.5">
               TLE File
@@ -263,7 +298,17 @@ export function SatConfigForm({ config, onChange, tleLocked = false }: SatConfig
 
             <select
               value={config.tle_id}
-              onChange={(e) => {updateField("tle_id", parseInt(e.target.value) || 0)}}
+              onChange={(e) => {
+                const val = parseInt(e.target.value) || 0
+                // A selected custom TLE file and TLE generation are mutually
+                // exclusive Phase 1 inputs — force generation off with the
+                // file selection in a single update.
+                onChange({
+                  ...config,
+                  tle_id: val,
+                  ...(val !== -1 ? { generate_TLE: false } : {}),
+                })
+              }}
               className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-vt-maroon/50 text-sm"
             >
               <option value={-1}>No Custom</option>

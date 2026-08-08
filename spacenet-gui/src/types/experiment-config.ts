@@ -104,7 +104,9 @@ export const defaultSatConfig: SatConfig = {
   // True = the simulator generates TLEs matching the configured shells.
   // False makes Phase 1 load a real TLE file, whose satellite count must
   // match the shell config exactly or the run crashes with an IndexError.
-  generate_TLE: true,
+  // Defaults OFF: generation only happens when the user explicitly opts in
+  // via the "Generate Custom TLEs" toggle in SatConfigForm.
+  generate_TLE: false,
   operator_name: 'starlink',
   shells: [
     {

@@ -18,7 +18,8 @@ describe('generateSatYAML', () => {
 
   it('emits generate_TLE and TLEFilePath', () => {
     const yaml = generateSatYAML(defaultSatConfig)
-    expect(yaml).toContain('generate_TLE: true')
+    // Default is false: generation is opt-in via the SatConfigForm toggle.
+    expect(yaml).toContain('generate_TLE: false')
     expect(yaml).toContain('TLEFilePath:')
   })
 
