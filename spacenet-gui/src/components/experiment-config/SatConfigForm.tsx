@@ -319,7 +319,14 @@ export function SatConfigForm({ config, onChange, tleLocked = false }: SatConfig
               ))}
             </select>
           </div>
-          {config.generate_TLE === false && (
+          {config.generate_TLE === false && config.tle_id === -1 && (
+            <p className="text-[11px] text-amber-600 dark:text-amber-400 flex items-start gap-1 font-medium" role="status">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" aria-hidden="true" />
+              You must either enable TLE generation or select a specific TLE file —
+              Phase 1 cannot run with neither.
+            </p>
+          )}
+          {config.generate_TLE === false && config.tle_id !== -1 && (
             <p className="text-[11px] text-amber-600 dark:text-amber-400 flex items-start gap-1 font-medium" role="status">
               <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" aria-hidden="true" />
               TLE generation is disabled for this experiment — Phase 1 will load a real
