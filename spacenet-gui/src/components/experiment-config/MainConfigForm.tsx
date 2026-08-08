@@ -190,62 +190,6 @@ export function MainConfigForm({ config, onChange }: MainConfigFormProps) {
         </div>
       </div>
 
-      {/* Routing Nodes */}
-      <div className="rounded-card bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border p-6">
-        <h3 className="text-lg font-semibold text-light-text dark:text-dark-text mb-4">
-          Source & Destination Nodes
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-light-text dark:text-dark-text mb-1.5">
-              Source Node <span className="text-red-500">*</span>
-            </label>
-            <select
-              value={config.SourceNode}
-              onChange={(e) => {
-                const val = parseInt(e.target.value);
-                updateField("SourceNode", val);
-              }}
-              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-vt-maroon/50"
-            >
-              {stations.map((st) => (
-                <option
-                  key={st.id}
-                  value={st.id}
-                  disabled={st.id === config.DestNode}   // <-- disable selected dest
-                >
-                  {st.id} - {st.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-light-text dark:text-dark-text mb-1.5">
-              Destination Node <span className="text-red-500">*</span>
-            </label>
-            <select
-              value={config.DestNode}
-              onChange={(e) => {
-                const val = parseInt(e.target.value);
-                updateField("DestNode", val);
-              }}
-              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-vt-maroon/50"
-            >
-              {stations.map((st) => (
-                <option
-                  key={st.id}
-                  value={st.id}
-                  disabled={st.id === config.SourceNode}  // <-- disable selected source
-                >
-                  {st.id} - {st.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </div>
-
       {/* Routing Algorithm */}
       <div className="rounded-card bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border p-6">
         <h3 className="text-lg font-semibold text-light-text dark:text-dark-text mb-4">
@@ -343,6 +287,62 @@ export function MainConfigForm({ config, onChange }: MainConfigFormProps) {
               />
               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-vt-maroon/20 dark:peer-focus:ring-vt-maroon/30 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-vt-maroon"></div>
             </label>
+          </div>
+        </div>
+      </div>
+
+      {/* Routing Nodes */}
+      <div className="rounded-card bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border p-6">
+        <h3 className="text-lg font-semibold text-light-text dark:text-dark-text mb-4">
+          Source & Destination Nodes
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-light-text dark:text-dark-text mb-1.5">
+              Source Node <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={config.SourceNode}
+              onChange={(e) => {
+                const val = parseInt(e.target.value);
+                updateField("SourceNode", val);
+              }}
+              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-vt-maroon/50"
+            >
+              {stations.map((st) => (
+                <option
+                  key={st.id}
+                  value={st.id}
+                  disabled={st.id === config.DestNode}   // <-- disable selected dest
+                >
+                  {st.id} - {st.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-light-text dark:text-dark-text mb-1.5">
+              Destination Node <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={config.DestNode}
+              onChange={(e) => {
+                const val = parseInt(e.target.value);
+                updateField("DestNode", val);
+              }}
+              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-vt-maroon/50"
+            >
+              {stations.map((st) => (
+                <option
+                  key={st.id}
+                  value={st.id}
+                  disabled={st.id === config.SourceNode}  // <-- disable selected source
+                >
+                  {st.id} - {st.name}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
       </div>

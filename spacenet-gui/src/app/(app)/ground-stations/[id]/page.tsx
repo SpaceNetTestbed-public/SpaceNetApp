@@ -192,7 +192,7 @@ export default function EditStationSetPage() {
   }
 
   return (
-    <div className="p-6 sm:p-8">
+    <div className={`px-6 pt-6 sm:px-8 sm:pt-8 ${hasUnsaved ? 'pb-24' : 'pb-6 sm:pb-8'}`}>
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>

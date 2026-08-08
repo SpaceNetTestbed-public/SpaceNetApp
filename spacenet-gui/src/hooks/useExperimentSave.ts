@@ -32,7 +32,9 @@ export function useExperimentSave({ id, appName, onSuccess }: UseExperimentSaveP
       description: config.description?.trim() || null,
       tag: config.tag?.trim() || null,
       satConfig: (() => {
-        const { TLEFilePath, generate_TLE, ...rest } = config.satConfig
+        // generate_TLE stays in the payload — it carries the user's explicit
+        // toggle choice. Only TLEFilePath is backend-managed and stripped.
+        const { TLEFilePath, ...rest } = config.satConfig
         return {
           ...rest,
           // shellsToNamedRecord keys by shellN — the simulator rejects the
