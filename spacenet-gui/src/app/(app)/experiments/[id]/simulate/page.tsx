@@ -785,7 +785,7 @@ export default function SimulationPage() {
     <div className="min-h-screen p-6 sm:p-8 space-y-8">
       {/* Header */}
       <div>
-        <Link href="/experiments">
+        <Link href={`/experiments/${id}/edit`}>
           <Button variant="ghost" className="mb-4">
             <ArrowLeft className="h-4 w-4 mr-2" aria-hidden="true"/>
             Back to Experiments
