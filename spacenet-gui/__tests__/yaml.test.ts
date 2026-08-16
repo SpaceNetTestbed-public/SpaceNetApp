@@ -26,8 +26,8 @@ describe('generateSatYAML', () => {
   it('emits shell fields for each shell', () => {
     const yaml = generateSatYAML(defaultSatConfig)
     expect(yaml).toContain('shell1:')
-    expect(yaml).toContain('orbits: 72')
-    expect(yaml).toContain('sat_per_orbit: 22')
+    expect(yaml).toContain('orbits: 20')
+    expect(yaml).toContain('sat_per_orbit: 15')
     expect(yaml).toContain('altitude: 550')
     expect(yaml).toContain('inclination: 53')
     expect(yaml).toContain('pattern: walker_delta')

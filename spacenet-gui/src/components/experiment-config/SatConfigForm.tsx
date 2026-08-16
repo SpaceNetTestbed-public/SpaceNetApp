@@ -21,9 +21,12 @@ interface SatConfigFormProps {
   config: SatConfig
   onChange: (config: SatConfig) => void
   tleLocked?: boolean
+  // True when landing from a fresh create (?new=true) — lets untouched
+  // default fields render as placeholders instead of pre-filled values.
+  isNew?: boolean
 }
 
-export function SatConfigForm({ config, onChange, tleLocked = false }: SatConfigFormProps) {
+export function SatConfigForm({ config, onChange, tleLocked = false, isNew = false }: SatConfigFormProps) {
   const [tleFiles, setTLEFiles] = useState<TLEFile[]>([]);
   const updateField = <K extends keyof SatConfig>(field: K, value: SatConfig[K]) => {
     onChange({ ...config, [field]: value })
@@ -70,8 +73,8 @@ export function SatConfigForm({ config, onChange, tleLocked = false }: SatConfig
   const addShell = () => {
     const newShell: ShellConfig = {
       name: `shell${shellsArray.length + 1}`,
-      orbits: 72,
-      sat_per_orbit: 22,
+      orbits: 20,
+      sat_per_orbit: 15,
       altitude: 550,
       inclination: 53,
       pattern: 'walker_delta',
@@ -357,6 +360,10 @@ export function SatConfigForm({ config, onChange, tleLocked = false }: SatConfig
               onChange={updateShell}
               onRemove={removeShell}
               canRemove={index != 0}
+              // Placeholder behavior is only for the initial shell1 on a
+              // brand-new form; shells added via "Add Shell" show their
+              // real default values pre-filled.
+              isNew={isNew && index === 0}
             />
           ))}
           <Button

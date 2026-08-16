@@ -111,8 +111,11 @@ export const defaultSatConfig: SatConfig = {
   shells: [
     {
       name: 'shell1',
-      orbits: 72,
-      sat_per_orbit: 22,
+      // 20×15 = 300 satellites — matches the backend's sat_default.yaml and
+      // runs locally in about a minute (the old 72×22 Starlink scale needs
+      // the lab compute server).
+      orbits: 20,
+      sat_per_orbit: 15,
       altitude: 550,
       inclination: 53,
       pattern: 'walker_delta',

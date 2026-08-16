@@ -1,6 +1,6 @@
 'use client'
 
-import { ShellConfig } from '@/types/experiment-config'
+import { ShellConfig, defaultSatConfig } from '@/types/experiment-config'
 import { ChevronDown, ChevronRight, X } from 'lucide-react'
 import { Button } from '../ui/button'
 import { useState } from 'react'
@@ -16,16 +16,32 @@ import {
   IPP_INCREMENT_MIN,
 } from '@/lib/constants'
 
+// Known defaults for a fresh experiment; on new/unedited forms these render
+// as an empty input with a placeholder instead of a pre-filled number.
+const DEFAULT_ORBITS = defaultSatConfig.shells[0].orbits
+const DEFAULT_SATS_PER_ORBIT = defaultSatConfig.shells[0].sat_per_orbit
+
 interface ShellEditorProps {
   shell: ShellConfig
   index: number
   onChange: (index: number, shell: ShellConfig) => void
   onRemove: (index: number) => void
   canRemove: boolean
+  // True when landing from a fresh create (?new=true on the edit page) —
+  // saved experiments opened later always render their stored values, even
+  // when those happen to equal the defaults.
+  isNew?: boolean
 }
 
-export function ShellEditor({ shell, index, onChange, onRemove, canRemove }: ShellEditorProps) {
+export function ShellEditor({ shell, index, onChange, onRemove, canRemove, isNew = false }: ShellEditorProps) {
   const [isExpanded, setIsExpanded] = useState(index === 0)
+  const [orbitsTouched, setOrbitsTouched] = useState(false)
+  const [satsPerOrbitTouched, setSatsPerOrbitTouched] = useState(false)
+
+  const showOrbitsPlaceholder =
+    isNew && !orbitsTouched && shell.orbits === DEFAULT_ORBITS
+  const showSatsPlaceholder =
+    isNew && !satsPerOrbitTouched && shell.sat_per_orbit === DEFAULT_SATS_PER_ORBIT
 
   const updateField = <K extends keyof ShellConfig>(field: K, value: ShellConfig[K]) => {
     onChange(index, { ...shell, [field]: value })
@@ -64,8 +80,12 @@ export function ShellEditor({ shell, index, onChange, onRemove, canRemove }: She
               type="number"
               min={MIN_ORBITS}
               max={MAX_ORBITS}
-              value={shell.orbits}
-              onChange={(e) => updateField('orbits', parseInt(e.target.value) || 1)}
+              value={showOrbitsPlaceholder ? '' : shell.orbits}
+              placeholder={`e.g. ${DEFAULT_ORBITS}`}
+              onChange={(e) => {
+                setOrbitsTouched(true)
+                updateField('orbits', parseInt(e.target.value) || 1)
+              }}
               className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-vt-maroon/50"
             />
           </div>
@@ -78,8 +98,12 @@ export function ShellEditor({ shell, index, onChange, onRemove, canRemove }: She
               type="number"
               min={MIN_SATS_PER_ORBIT}
               max={MAX_SATS_PER_ORBIT}
-              value={shell.sat_per_orbit}
-              onChange={(e) => updateField('sat_per_orbit', parseInt(e.target.value) || 1)}
+              value={showSatsPlaceholder ? '' : shell.sat_per_orbit}
+              placeholder={`e.g. ${DEFAULT_SATS_PER_ORBIT}`}
+              onChange={(e) => {
+                setSatsPerOrbitTouched(true)
+                updateField('sat_per_orbit', parseInt(e.target.value) || 1)
+              }}
               className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-vt-maroon/50"
             />
           </div>

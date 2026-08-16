@@ -790,12 +790,20 @@ export default function ExperimentsPage() {
 
                     const wasCustom = isCustom; 
                     const wasEdit = !!editExperiment;
+                    const wasDuplicate = duplicateId !== null;
                     
                     resetForm();
                     setShowModal(false);
                     
                     if (!wasEdit && !wasCustom)  {
-                      router.push(`/experiments/${expId}/edit`);
+                      // Fresh creates land on edit with ?new=true so default
+                      // shell fields can show as placeholders. Duplicates keep
+                      // the copied values visible as normal pre-filled numbers.
+                      router.push(
+                        wasDuplicate
+                          ? `/experiments/${expId}/edit`
+                          : `/experiments/${expId}/edit?new=true`
+                      );
                     } else {
                       await fetchExperiments();
                     }

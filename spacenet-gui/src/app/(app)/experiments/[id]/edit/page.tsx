@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import { AlertTriangle } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Skeleton, SkeletonStatus } from '@/components/ui/skeleton'
@@ -21,7 +21,12 @@ import { useExperimentSave } from '@/hooks/useExperimentSave'
 export default function EditExperimentPage() {
   const router = useRouter()
   const params = useParams()
+  const searchParams = useSearchParams()
   const id = params.id as string
+  // Set by the create-experiment modal redirect (?new=true). Distinguishes
+  // a freshly created experiment from one opened later via the experiments
+  // list — the /experiments/new page is unused in the real creation flow.
+  const isFreshCreate = searchParams.get('new') === 'true'
   const [activeTab, setActiveTab] = useState('sat-config')
   const [config, setConfig] = useState<ExperimentConfig | null>(null)
   const [originalConfig, setOriginalConfig] = useState<ExperimentConfig | null>(null)
@@ -60,7 +65,7 @@ export default function EditExperimentPage() {
         satConfig: satConfigData,
         mainConfig: mainConfigData,
         id: data.id,
-        isNew: false,
+        isNew: isFreshCreate,
         hasBeenRun,
       }
       setConfig(loaded)
@@ -78,7 +83,7 @@ export default function EditExperimentPage() {
       // or loading becomes false before data arrives (race condition).
       setLoading(false)
     }
-  }, [id])
+  }, [id, isFreshCreate])
 
   useEffect(() => {
     void fetchExperiment()
@@ -215,6 +220,7 @@ export default function EditExperimentPage() {
             config={config.satConfig}
             onChange={(satConfig) => updateConfig({ satConfig })}
             tleLocked={config.hasBeenRun || false}
+            isNew={isFreshCreate}
           />
         </TabsContent>
 

@@ -213,6 +213,7 @@ export default function NewExperimentPage() {
             config={config.satConfig}
             onChange={(satConfig) => updateConfig({ satConfig })}
             tleLocked={config.hasBeenRun || false}
+            isNew
           />
         </TabsContent>
 
