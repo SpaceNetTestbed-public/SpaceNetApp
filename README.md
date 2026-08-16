@@ -1,4 +1,4 @@
-# SpaceNet Testbed — Local Development Setup
+# SpaceNet Testbed: Local Development Setup
 
 SpaceNet is a LEO satellite constellation simulation and emulation platform
 developed at Virginia Tech (Dr. Kenyon's lab). It simulates real and custom
@@ -11,7 +11,7 @@ emulates network performance using Mininet.
 - Git installed
 - An SSH key added to your GitHub account (submodules clone over SSH)
 - Access granted to `VTSpaceNetLab/VTSpaceNetApp` and its two submodule repos
-  (`VTSpaceNetPhase1`, `VTSpaceNetPhase2`) — this is a private org repo
+  (`VTSpaceNetPhase1`, `VTSpaceNetPhase2`) - this is a private org repo
 - 16GB RAM recommended (simulation is compute-heavy)
 - Windows, Mac, or Linux
 
@@ -42,7 +42,7 @@ Once running, open your browser:
 | SpaceNet GUI | http://localhost:3000 |
 | Backend API docs | http://localhost:5000/apidocs |
 
-The app opens directly to the Experiments page — no login required.
+The app opens directly to the Experiments page - no login required.
 
 ## Daily Usage
 
@@ -53,7 +53,7 @@ docker compose up
 # Stop the stack (keeps all data)
 docker compose down
 
-# Full reset — wipes database and starts clean
+# Full reset - wipes database and starts clean
 docker compose down -v
 docker compose up --build
 ```
@@ -82,7 +82,7 @@ docker compose up --build
 7. When Phase 1 completes, visualization output appears automatically
 
 **Note:** The default Starlink config (1584 satellites, 12 time steps) can
-take significantly longer and is CPU/memory-intensive — expect it to strain
+take significantly longer and is CPU/memory-intensive - expect it to strain
 a laptop. Use the reduced config above for local testing; use the lab
 compute server for full-scale runs.
 
@@ -110,7 +110,7 @@ docker compose down -v
 docker compose up --build
 ```
 
-**Simulation taking too long:** Reduce in Edit Config — Orbits: 4, Sat per
+**Simulation taking too long:** Reduce in Edit Config - Orbits: 4, Sat per
 orbit: 6, TimeStepCount: 3.
 
 ## Repository Structure
@@ -119,7 +119,7 @@ orbit: 6, TimeStepCount: 3.
 VTSpaceNetApp/
 ├── docker-compose.yml              # All container definitions
 ├── .env                             # Database credentials
-├── spacenet-gui/                    # Frontend (Next.js) — part of main repo
+├── spacenet-gui/                    # Frontend (Next.js) - part of main repo
 └── spacenet-backend/                 # Backend (Flask + workers)
     ├── dynamic-topology-generator/   # Submodule → VTSpaceNetPhase1 (orbit sim)
     └── constellation-simulator-main/ # Submodule → VTSpaceNetPhase2 (emulation)
@@ -133,4 +133,4 @@ VTSpaceNetApp/
 - **Emulation:** Mininet v2.3.0
 
 ---
-Virginia Tech — Aerospace & Ocean Engineering — Dr. Samantha Parry Kenyon
+Virginia Tech, Aerospace & Ocean Engineering | Dr. Samantha Parry Kenyon
