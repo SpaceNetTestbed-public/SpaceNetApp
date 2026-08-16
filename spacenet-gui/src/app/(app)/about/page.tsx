@@ -223,7 +223,7 @@ export default function AboutPage() {
         <h2 className="text-2xl font-bold text-light-text dark:text-dark-text mb-6">Links & Resources</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <a
-            href="https://github.com/VTSpaceNetLab/VTSpaceNetApp"
+            href="https://github.com/SpaceNetTestbed-public"
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -231,14 +231,14 @@ export default function AboutPage() {
               <div className="h-12 w-12 rounded-xl bg-light-bg dark:bg-dark-bg flex items-center justify-center mb-4">
                 <Github className="h-6 w-6 text-light-text dark:text-dark-text" />
               </div>
-              <h3 className="text-lg font-semibold text-light-text dark:text-dark-text mb-2">GitHub</h3>
+              <h3 className="text-lg font-semibold text-light-text dark:text-dark-text mb-2">Core Simulation Code</h3>
               <p className="text-sm text-light-text/70 dark:text-dark-subtext">
-                View source code, documentation, and contribute to the project.
+                Phase 1 &amp; 2 source on GitHub.
               </p>
             </Card>
           </a>
           <a
-            href="https://github.com/VTSpaceNetLab/VTSpaceNetApp#readme"
+            href="https://github.com/SpaceNetTestbed-public"
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -248,7 +248,7 @@ export default function AboutPage() {
               </div>
               <h3 className="text-lg font-semibold text-light-text dark:text-dark-text mb-2">Documentation</h3>
               <p className="text-sm text-light-text/70 dark:text-dark-subtext">
-                Complete guides for YAML configuration, simulation setup, and analysis.
+                Browse Phase 1 &amp; 2 repos for setup and config details.
               </p>
             </Card>
           </a>
