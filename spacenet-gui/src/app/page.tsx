@@ -257,7 +257,7 @@ export default function HomePage() {
             </div>
             <div className="flex items-center gap-4">
               <a
-                href="https://github.com"
+                href="https://github.com/SpaceNetTestbed-public"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="h-10 w-10 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center transition-colors"

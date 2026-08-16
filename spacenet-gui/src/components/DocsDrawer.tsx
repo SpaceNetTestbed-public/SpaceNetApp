@@ -278,7 +278,7 @@ TLEFilePath: /path/to/tle/files/`
                   </h3>
                   <div className="space-y-2">
                     <a
-                      href="https://github.com/vt-spacenet"
+                      href="https://github.com/SpaceNetTestbed-public"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-2 text-sm text-vt-maroon hover:text-vt-maroon-hover"
