@@ -26,7 +26,7 @@ Run these commands in order:
 ```bash
 # 1. Clone this repo
 git clone -b yoshwan-dev https://github.com/VTSpaceNetLab/VTSpaceNetApp.git
-cd spacenet-local
+cd VTSpaceNetLab
 
 # 2. Initialize all submodules (frontend + backend + nested)
 git submodule update --init --recursive
