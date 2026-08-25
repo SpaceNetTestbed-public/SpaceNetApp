@@ -19,11 +19,13 @@ topology and routing tables, and emulates network performance using Mininet.
 
 ## First-Time Setup
 
+> NOTE: The `yoshwan-dev` branch is the most up-to-date version of the application, HIGHLY RECOMMENDED to follow the steps given below
+
 Run these commands in order:
 
 ```bash
 # 1. Clone this repo
-git clone https://code.vt.edu/netsat/spacenet-local.git
+git clone -b yoshwan-dev https://github.com/VTSpaceNetLab/VTSpaceNetApp.git
 cd spacenet-local
 
 # 2. Initialize all submodules (frontend + backend + nested)
