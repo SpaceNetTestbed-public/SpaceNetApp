@@ -34,6 +34,7 @@ def process_config(experiment_id):
         # db = get_db()
 
         try:
+            clear_stale_generated_tles(experiment_id)
             zip = f'local_workspace/{experiment_id}/output.zip'
             folder = f'local_workspace/{experiment_id}/output'
             # Remove BOTH old artifacts (a successful run leaves zip AND
@@ -43,7 +44,6 @@ def process_config(experiment_id):
                 os.remove(zip)
             if os.path.isdir(folder):
                 shutil.rmtree(folder)
-            clear_stale_generated_tles(experiment_id)
             phase_logs, return_code = run_phase_1(experiment_id)
             logs += phase_logs
             # The simulator can partially fail (e.g. a worker thread crashes)
