@@ -10,7 +10,7 @@ import { Dialog, DialogHeader, DialogTitle, DialogBody } from '@/components/ui/d
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ErrorState } from '@/components/ui/error-state'
-import { apiFetch } from '@/lib/api'
+import { apiFetch, ApiError } from '@/lib/api'
 import { getApiErrorMessage } from '@/lib/utils'
 import { toast } from 'sonner'
 import { motion } from 'framer-motion'
@@ -150,6 +150,11 @@ export default function JobQueuePage() {
       setLogs(data.logs)
       setSelectedJob(job)
     } catch (err) {
+      if (err instanceof ApiError && err.status === 404) {
+        setLogs('No logs available yet.')
+        setSelectedJob(job)
+        return
+      }
       console.error(err)
       toast.error(getApiErrorMessage(err, 'Failed to load logs'), { id: 'job-logs-load' })
     } finally {

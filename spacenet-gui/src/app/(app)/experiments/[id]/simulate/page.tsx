@@ -6,7 +6,7 @@ import { ArrowLeft, Play } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { ErrorState } from '@/components/ui/error-state'
-import { apiFetch, API_URL } from '@/lib/api'
+import { apiFetch, API_URL, ApiError } from '@/lib/api'
 import { SatConfig } from '@/types/experiment-config'
 import { getApiErrorMessage } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -773,8 +773,10 @@ export default function SimulationPage() {
     try{
       const res = await apiFetch(`/experiments/${id}/logs/${phase}`) as { logs: string }
       setLogs(res.logs || 'No logs available.')
-    }catch{
-      setLogs('Failed to load logs.')
+    }catch(err){
+      setLogs(err instanceof ApiError && err.status === 404
+        ? 'No logs available yet.'
+        : 'Failed to load logs.')
     }finally{
       setLoadingLogs(false)
     }
