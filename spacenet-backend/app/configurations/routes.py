@@ -132,7 +132,7 @@ def update_sat(experiment_id):
           return jsonify({"error": "TLE file not found"}), 404
 
       dest_folder = f"local_workspace/{experiment.id}/"
-      dest_file = dest_folder + f"{data['operator_name']}_tles/{str(int(dt.timestamp()))}.txt"
+      dest_file = dest_folder + f"{data['operator_name']}_tles/starlink_{str(int(dt.timestamp()))}"
 
       if os.path.exists(dest_folder + f"{data['operator_name']}_tles/"):
         shutil.rmtree(dest_folder + f"{data['operator_name']}_tles/")

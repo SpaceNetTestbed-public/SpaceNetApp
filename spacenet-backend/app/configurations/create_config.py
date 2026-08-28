@@ -55,28 +55,30 @@ def create_sat_config(experiment_id, sat_config ):
     min_dt = dt - timedelta(days=2)
     max_dt = dt + timedelta(days=2)
 
-    # edit this logic to include custom tle.
-    sat_config['generate_TLE'] = True
-    # Only look for a real TLE file matching the sim date when a custom TLE
-    # was explicitly selected (update_sat points TLEFilePath into the
-    # experiment workspace in that case). The default utils/ path ships real
-    # Starlink TLE files whose dates can coincide with the sim start date and
-    # silently flip generate_TLE off — Phase 1 then loads thousands of real
-    # satellites against a small custom shell config and crashes (IndexError).
-    if sat_config.get("TLEFilePath") != TLE_FILE_PATH:
-        tles_dir = os.path.join(sat_config["TLEFilePath"], f"{sat_config['operator_name']}_tles")
-        if os.path.isdir(tles_dir):
-            for filename in os.listdir(tles_dir):
-                name, _ = os.path.splitext(filename)
-                l = name.split('_')
-                if len(l) < 2:
-                    continue
-                if not l[1].isdigit():
-                    continue
-                file_ts = int(l[1])
-                file_dt = datetime.fromtimestamp(file_ts)
-                if min_dt <= file_dt <= max_dt:
-                    sat_config['generate_TLE'] = False
+    custom_tle_selected = sat_config.get('tle_id', -1) != -1
+    if custom_tle_selected:
+        # The user explicitly selected an uploaded real TLE. Preserve that
+        # choice instead of falling back to the shell1-only synthetic generator.
+        sat_config['generate_TLE'] = False
+    else:
+        sat_config['generate_TLE'] = True
+        # Only auto-detect a real TLE by date when no specific custom TLE was
+        # selected. The default utils/ path ships bundled real Starlink TLEs
+        # whose dates can coincide with the simulation start date.
+        if sat_config.get("TLEFilePath") != TLE_FILE_PATH:
+            tles_dir = os.path.join(sat_config["TLEFilePath"], f"{sat_config['operator_name']}_tles")
+            if os.path.isdir(tles_dir):
+                for filename in os.listdir(tles_dir):
+                    name, _ = os.path.splitext(filename)
+                    l = name.split('_')
+                    if len(l) < 2:
+                        continue
+                    if not l[1].isdigit():
+                        continue
+                    file_ts = int(l[1])
+                    file_dt = datetime.fromtimestamp(file_ts)
+                    if min_dt <= file_dt <= max_dt:
+                        sat_config['generate_TLE'] = False
 
     if not validateConfig(sat_config, sat_config_schema):
         raise ValidationError("Satellite configuration is invalid")
