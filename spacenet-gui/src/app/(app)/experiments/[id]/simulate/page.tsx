@@ -193,6 +193,9 @@ export default function SimulationPage() {
   const vizAutoTriggeredRef = useRef(false)
   /** RQ job id of the in-flight globe render, used by the viz Cancel button */
   const gifJobIdRef = useRef<string | null>(null)
+  /** RQ job id of the in-flight animated GIF render */
+  const animatedGifJobIdRef = useRef<string | null>(null)
+  const [isAnimatedGifPolling, setIsAnimatedGifPolling] = useState(false)
   const triggerVisualizationRef = useRef<(auto?: boolean) => void>(() => {})
 
   /* ----------------------------- Logs ----------------------------- */
@@ -335,6 +338,39 @@ export default function SimulationPage() {
 
   useJobPolling(gifPollTick, { intervalMs: 3000, enabled: isGifPolling })
 
+  const animatedGifPollTick = async () => {
+    const jobId = animatedGifJobIdRef.current
+    if (!jobId) return
+
+    try {
+      const jobs = await apiFetch('/jobs') as Array<{ job_id: string; status: string }>
+      const job = jobs.find(j => j.job_id === jobId)
+      if (!job) return
+
+      if (job.status === 'finished') {
+        animatedGifJobIdRef.current = null
+        setIsAnimatedGifPolling(false)
+        await fetchGif()
+        setLiveMessage('Animated GIF ready')
+        toast.success('Animated GIF ready')
+      } else if (job.status === 'failed') {
+        animatedGifJobIdRef.current = null
+        setIsAnimatedGifPolling(false)
+        setLiveMessage('Animated GIF generation failed')
+        toast.error('Animated GIF generation failed — check the Jobs page for logs')
+      } else if (job.status === 'canceled' || job.status === 'cancelled') {
+        animatedGifJobIdRef.current = null
+        setIsAnimatedGifPolling(false)
+        setLiveMessage('Animated GIF generation cancelled')
+        toast.info('Animated GIF generation was cancelled')
+      }
+    } catch {
+      // A transient jobs lookup failure should not stop polling.
+    }
+  }
+
+  useJobPolling(animatedGifPollTick, { intervalMs: 3000, enabled: isAnimatedGifPolling })
+
   /* ----------------------------- Status Check ----------------------------- */
   const checkStatus = async () => {
     setStatusError(null)
@@ -367,7 +403,7 @@ export default function SimulationPage() {
       const activeJob = jobs.find(j =>
         String(j.experiment_id) === String(id) &&
         (j.phase === '1' || j.phase === '2') &&
-        j.status === 'started'
+        (j.status === 'started' || j.status === 'queued')
       )
       if (activeJob?.phase === '1' || activeJob?.phase === '2') {
         const phase = Number(activeJob.phase) as 1 | 2
@@ -429,26 +465,27 @@ export default function SimulationPage() {
     checkMainMN()
   }, [id])
 
-  useEffect(() => {
-    const fetchGif = async () => {
-      setLoadingGif(true)
-      try {
-        const res = await fetch(`${API_URL}/experiments/${id}/gifs/output-gif/file`)
-        if (!res.ok) {
-          setGifUrl(null) // GIF doesn't exist yet
-          return
-        }
-        const blob = await res.blob()
-        const url = URL.createObjectURL(blob)
-        setGifUrl(url)
-      } catch (err) {
-        console.error('Failed to fetch GIF:', err)
-        toast.error(getApiErrorMessage(err, 'Failed to load visualization'), { id: 'experiment-gif-load' })
-        setGifUrl(null)
-      } finally {
-        setLoadingGif(false)
+  async function fetchGif() {
+    setLoadingGif(true)
+    try {
+      const res = await fetch(`${API_URL}/experiments/${id}/gifs/output-gif/file`)
+      if (!res.ok) {
+        setGifUrl(null) // GIF doesn't exist yet
+        return
       }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      setGifUrl(url)
+    } catch (err) {
+      console.error('Failed to fetch GIF:', err)
+      toast.error(getApiErrorMessage(err, 'Failed to load visualization'), { id: 'experiment-gif-load' })
+      setGifUrl(null)
+    } finally {
+      setLoadingGif(false)
     }
+  }
+
+  useEffect(() => {
   
     fetchGif()
     return () => {
@@ -641,7 +678,7 @@ export default function SimulationPage() {
   const handleCreateAniGif = async () => {
     try {
       setIsVizGenerating(true)
-      await apiFetch(`/experiments/${id}/create-gif`, {
+      const result = await apiFetch(`/experiments/${id}/create-gif`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -658,7 +695,12 @@ export default function SimulationPage() {
           long: 0,
           shells: shellColors,
         }),
-      })
+      }) as PhaseStartResponse
+      animatedGifJobIdRef.current = result?.job_id ?? null
+      if (animatedGifJobIdRef.current) {
+        setIsAnimatedGifPolling(true)
+        setLiveMessage('Generating animated GIF')
+      }
     } catch (err) {
       toast.error(getApiErrorMessage(err, 'Failed to generate output'), { id: 'experiment-output-generate' })
     } finally {
