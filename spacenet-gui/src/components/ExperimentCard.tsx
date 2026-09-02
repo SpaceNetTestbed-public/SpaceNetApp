@@ -89,6 +89,13 @@ export function ExperimentCard({ experiment, index, onDelete , onDuplicate, onEd
           {experiment.description}
         </p>
 
+        {/* No Experiment exists */}
+        {!experiment.hasExperiment && (
+          <p className="mb-3 text-sm text-red-600 dark:text-red-400">
+            The experiment folder does not exist. Either delete it or drag the experiment folder inside the workspace.
+          </p>
+        )}
+
         {/* Phase progress */}
         <div className="flex items-center gap-2 mb-3">
           <Badge variant={hasPhase1 ? 'success' : 'neutral'}>Phase 1</Badge>
@@ -117,7 +124,7 @@ export function ExperimentCard({ experiment, index, onDelete , onDuplicate, onEd
             </span>
           )}
           <Link href={`/experiments/${experiment.id}/edit`} className={experiment.created_at ? '' : 'flex-1'}  onClick={(e) => { if (experiment.is_custom){e.preventDefault()}  }}>
-            <Button variant="secondary" className={experiment.created_at ? '' : 'w-full'}  disabled={experiment.is_custom} aria-label={`Edit configuration for ${experiment.name}`}>
+            <Button variant="secondary" className={experiment.created_at ? '' : 'w-full'}  disabled={experiment.is_custom || !experiment.hasExperiment} aria-label={`Edit configuration for ${experiment.name}`}>
               <Edit className="h-4 w-4 mr-2" aria-hidden="true" />
               Edit Config
             </Button>
@@ -126,6 +133,7 @@ export function ExperimentCard({ experiment, index, onDelete , onDuplicate, onEd
             variant="primary"
             className={!experiment.created_at ? 'flex-1' : undefined}
             onClick={handleRunSimulation}
+            disabled={!experiment.hasExperiment}
           >
             <Play className="h-4 w-4 mr-2" aria-hidden="true" />
             Run Simulation
@@ -144,8 +152,9 @@ export function ExperimentCard({ experiment, index, onDelete , onDuplicate, onEd
               sideOffset={0}
             >
               <DropdownMenu.Item
+                disabled={!experiment.hasExperiment}
                 className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer rounded-md"
-                onClick={() => onEdit(experiment)}
+                onSelect={() => onEdit(experiment)}
                 aria-label={`Edit ${experiment.name}`}
               >
                 <Edit className="h-4 w-4" aria-hidden="true" />
@@ -153,15 +162,16 @@ export function ExperimentCard({ experiment, index, onDelete , onDuplicate, onEd
               </DropdownMenu.Item>
               <DropdownMenu.Item
                 className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer rounded-md"
-                onClick={() => handleDuplicateExperiment()}
+                onSelect={() => handleDuplicateExperiment()}
                 aria-label={`Duplicate ${experiment.name}`}
+                disabled={!experiment.hasExperiment}
               >
                 <Copy className="h-4 w-4" aria-hidden="true" />
                 Duplicate
               </DropdownMenu.Item>
               <DropdownMenu.Item
                 className="flex items-center gap-2 px-4 py-2 text-sm text-red-500 hover:bg-red-100 dark:hover:bg-red-900 cursor-pointer rounded-md"
-                onClick={() => setShowDeleteConfirm(true)}
+                onSelect={() => setShowDeleteConfirm(true)}
                 aria-label={`Delete ${experiment.name}`}
               >
                 <Trash2 className="h-4 w-4" aria-hidden="true" />

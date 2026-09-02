@@ -45,6 +45,7 @@ def get_experiments():
 
       # Phase checks
       base_path = f"local_workspace/{experiment.id}"
+      exp["hasExperiment"] = os.path.exists(f"{base_path}")
       exp["hasPhase1"] = os.path.exists(f"{base_path}/output.zip")
       exp["hasPhase2"] = os.path.exists(f"{base_path}/output_mn.zip")
 
@@ -637,3 +638,4 @@ def duplicate_experiment(experiment_id):
         "message": "Experiment duplicated",
         "experiment_id": new_experiment.id
     }), 201
+

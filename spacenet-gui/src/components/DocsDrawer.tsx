@@ -203,20 +203,58 @@ TLEFilePath: /path/to/tle/files/`
                   </h3>
                   <ol className="space-y-2 text-sm text-light-text/80 dark:text-dark-subtext list-decimal list-inside">
                     <li>
-                      <span className="font-semibold">Import YAML</span> – Upload your configuration file. The system
-                      automatically validates all required fields.
-                    </li>
+                      <span className="font-semibold">Create experiment</span> – On the experiments page you can press the create button to create an experiment.
+                      
+                      <ul className="mt-2 ml-6 space-y-2 text-sm text-light-text/80 dark:text-dark-subtext list-disc list-inside">
+                        <li>
+                          <span className="font-semibold">Default config</span> – When only providing a name of the experiment, it would create a page that is editable via the GUI.
+                        </li>
+                        <li>
+                          <span className="font-semibold">Config only</span> – Users can upload custom config files that adds defaults to the output path and id specific fields.
+                        </li>
+                        <li>
+                          <span className="font-semibold">Entire Experiment</span> – Users can upload experiment zip files that includes outputs but not configurable in the GUI at the moment.
+                        </li>
+                        <li>
+                          <span className="font-semibold">Duplicate Experiment</span> – Users press the elipses and press Duplicate to create another experiment similar to the selected one
+                        </li>
+                      </ul>
+                    </li><br></br>
                     <li>
-                      <span className="font-semibold">Review Validation</span> – Check for any missing or invalid fields.
-                      Green checkmark indicates ready to run.
-                    </li>
+                      <span className="font-semibold">Configure Experiment</span>
+                      
+                      <ul className="mt-2 ml-6 space-y-2 text-sm text-light-text/80 dark:text-dark-subtext list-disc list-inside">
+                        <li>
+                          <span className="font-semibold">Custom Config</span> – You can edit custom configurations by pressing the elipses and pressing Edit. Example configurations can be 
+                        </li>
+                        <li>
+                          <span className="font-semibold">Regular Config</span> – Users can press the Edit Config button to edit their experiment via the GUI with descriptions
+                        </li>
+                      </ul>
+                    </li><br></br>
                     <li>
-                      <span className="font-semibold">Run Simulation</span> – Click the Run Simulation button. Progress
-                      updates appear in real-time.
-                    </li>
+                      <span className="font-semibold">Custom Files</span> – These files are updated on the top toolbar. Only non-custom experiments support these.
+                      
+                      <ul className="mt-2 ml-6 space-y-2 text-sm text-light-text/80 dark:text-dark-subtext list-disc list-inside">
+                        <li>
+                          <span className="font-semibold">TLE Files</span> – You can create/upload TLE files to the app on the TLE tab. An example could be found at this <a href="https://celestrak.org/NORAD/elements/gp.php?GROUP=starlink&FORMAT=tle">site</a>
+                        </li>
+                        <li>
+                          <span className="font-semibold">Ground Station Files</span> – You can create Ground Station files via the Ground Station tab. You can input different stations with custom names and coordinates one at a time.
+                        </li>
+                      </ul>
+                    </li><br></br>
                     <li>
-                      <span className="font-semibold">View Results</span> – Once complete, download output files and
-                      review metrics.
+                      <span className="font-semibold">Jobs</span> – This app is based on a queue system so experiment runs {"don't"} clog up system resources quickly
+                      
+                      <ul className="mt-2 ml-6 space-y-2 text-sm text-light-text/80 dark:text-dark-subtext list-disc list-inside">
+                        <li>
+                          <span className="font-semibold">Queue</span> – The job queue can be found in the Jobs tab on the top bar. You can view logs and cancel experiments.
+                        </li>
+                        <li>
+                          <span className="font-semibold">Run Simulation Page</span> – This page shows outputs but also the logs of the last completed experiment (May add running log as well for convenience) 
+                        </li>
+                      </ul>
                     </li>
                   </ol>
                 </section>
@@ -226,31 +264,31 @@ TLEFilePath: /path/to/tle/files/`
                   <h3 className="text-lg font-semibold text-light-text dark:text-dark-text mb-3">
                     Interpreting Results
                   </h3>
-                  <div className="space-y-3 text-sm text-light-text/80 dark:text-dark-subtext">
-                    <div>
-                      <span className="font-semibold">📄 constellation_output.yaml</span>
-                      <p className="ml-5 mt-1">
-                        Contains final satellite positions, link connectivity matrices, and network topology data.
-                      </p>
-                    </div>
-                    <div>
-                      <span className="font-semibold">📊 network_metrics.csv</span>
-                      <p className="ml-5 mt-1">
-                        Includes latency statistics, packet loss rates, throughput measurements, and link utilization
-                        over time.
-                      </p>
-                    </div>
-                    <div>
-                      <span className="font-semibold">🗒️ simulation_logs.txt</span>
-                      <p className="ml-5 mt-1">
-                        Detailed execution logs showing initialization, epoch progression, and any warnings or errors.
-                      </p>
-                    </div>
+                  <div className="space-y-3 text-sm text-light-text/80 dark:text-dark-subtext leading-relaxed">
+                    <p>
+                      Results can be seen when pressing the Run Simulation button on the experiments page or after editing the configuration.
+                      Every result can be downloaded straight from the website or from: <br></br><br></br><i>{"<spacenet-backend-loc>/local_workspace/<id>"}</i>
+                    </p><br></br>
                   </div>
+                  <ul className="space-y-2 text-sm text-light-text/80 dark:text-dark-subtext list-decimal list-inside">
+                    <li>
+                      <span className="font-semibold">Phase 1 Results</span> – a dynamic network topology that describes how satellites and
+                       ground stations are connected over time. This topology is required for Phase 2 to emulate communication in Mininet.
+                    </li>
+                    <li>
+                      <span className="font-semibold">View GIF</span> – Shows the connections of ground stations and satellites over time.
+                    </li>
+                    <li>
+                      <span className="font-semibold">3D Interactive Model</span> – Shows the connection over an interactive model at a certain time stamp
+                    </li>
+                    <li>
+                      <span className="font-semibold">Phase 2 Results</span> – Emulates and test the network topology in phase 1
+                    </li>
+                  </ul>
                 </section>
 
                 {/* Hardware Integration */}
-                <section>
+                {/* <section>
                   <h3 className="text-lg font-semibold text-light-text dark:text-dark-text mb-3">
                     Hardware Integration (HIL)
                   </h3>
@@ -269,7 +307,7 @@ TLEFilePath: /path/to/tle/files/`
                       <span className="font-semibold">WonderProxy: true</span> – Use proxy for geolocation testing
                     </li>
                   </ul>
-                </section>
+                </section> */}
 
                 {/* Additional Resources */}
                 <section>
@@ -285,12 +323,20 @@ TLEFilePath: /path/to/tle/files/`
                     >
                       → GitHub Repository <ExternalLink className="h-3.5 w-3.5" />
                     </a>
-                    <p className="flex items-center gap-2 text-sm text-light-text/60 dark:text-dark-subtext">
-                      → SciTech 2025 Manuscript (DOI forthcoming)
-                    </p>
-                    <p className="flex items-center gap-2 text-sm text-light-text/60 dark:text-dark-subtext">
-                      → Contact Support: reach out via GitHub Issues
-                    </p>
+                    <a
+                      href="https://doi.org/10.2514/6.2025-2716"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-sm text-vt-maroon hover:text-vt-maroon-hover"
+                    >
+                      → SciTech 2025 Manuscript (DOI) <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                    <a
+                      href="mailto:anthonymai@vt.edu"
+                      className="flex items-center gap-2 text-sm text-vt-maroon hover:text-vt-maroon-hover"
+                    >
+                      → Contact Developer
+                    </a>
                   </div>
                 </section>
               </div>

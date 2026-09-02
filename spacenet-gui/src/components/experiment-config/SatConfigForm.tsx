@@ -314,7 +314,7 @@ export function SatConfigForm({ config, onChange, tleLocked = false, isNew = fal
               }}
               className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-vt-maroon/50 text-sm"
             >
-              <option value={-1}>No Custom</option>
+              <option value={-1}>No Uploaded TLE</option>
               {tleFiles.map((file) => (
                 <option key={file.id} value={file.id}>
                   {file.name}

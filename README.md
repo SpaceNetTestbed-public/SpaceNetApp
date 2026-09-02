@@ -17,11 +17,13 @@ emulates network performance using Mininet.
 
 ## First-Time Setup
 
+> NOTE: The `yoshwan-dev` branch is the most up-to-date version of the application, HIGHLY RECOMMENDED to follow the steps given below
+
 Run these commands in order:
 
 ```bash
 # 1. Clone this repo
-git clone https://github.com/VTSpaceNetLab/VTSpaceNetApp.git
+git clone -b yoshwan-dev https://github.com/VTSpaceNetLab/VTSpaceNetApp.git
 cd VTSpaceNetApp
 
 # 2. Initialize submodules (Phase 1 + Phase 2 simulation engines)

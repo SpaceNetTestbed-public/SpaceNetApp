@@ -174,6 +174,7 @@ def get_sat_by_id(experiment_id):
         return jsonify({"error": "Experiment not found"}), 404
 
     sat_path = f'local_workspace/{experiment_id}/{SAT_FILE}'
+    # TODO: maybe don't create a whole new experiment when you can't get the SAT id.
     if not os.path.exists(sat_path):
         try:
             ensure_experiment_folder_and_defaults(experiment_id)
