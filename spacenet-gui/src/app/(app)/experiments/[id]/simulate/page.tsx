@@ -144,6 +144,8 @@ export default function SimulationPage() {
   const router = useRouter()
   const id = params.id as string
   const [gifUrl, setGifUrl] = useState<string | null>(null)
+  const gifUrlRef = useRef<string | null>(null)
+  const gifFetchVersionRef = useRef(0)
   const [loadingGif, setLoadingGif] = useState(true) // true until we check
   const [showGif, setShowGif] = useState(false)
 
@@ -358,6 +360,7 @@ export default function SimulationPage() {
 
     try {
       const jobs = await apiFetch('/jobs') as Array<{ job_id: string; status: string }>
+      if (animatedGifJobIdRef.current !== jobId) return
       const job = jobs.find(j => j.job_id === jobId)
       if (!job) return
 
@@ -479,23 +482,33 @@ export default function SimulationPage() {
     checkMainMN()
   }, [id])
 
+  function replaceGifUrl(url: string | null) {
+    if (gifUrlRef.current) URL.revokeObjectURL(gifUrlRef.current)
+    gifUrlRef.current = url
+    setGifUrl(url)
+  }
+
   async function fetchGif() {
+    const version = ++gifFetchVersionRef.current
     setLoadingGif(true)
     try {
       const res = await fetch(`${API_URL}/experiments/${id}/gifs/output-gif/file`)
+      if (version !== gifFetchVersionRef.current) return
       if (!res.ok) {
-        setGifUrl(null) // GIF doesn't exist yet
+        replaceGifUrl(null) // GIF doesn't exist yet
         return
       }
       const blob = await res.blob()
+      if (version !== gifFetchVersionRef.current) return
       const url = URL.createObjectURL(blob)
-      setGifUrl(url)
+      replaceGifUrl(url)
     } catch (err) {
+      if (version !== gifFetchVersionRef.current) return
       console.error('Failed to fetch GIF:', err)
       toast.error(getApiErrorMessage(err, 'Failed to load visualization'), { id: 'experiment-gif-load' })
-      setGifUrl(null)
+      replaceGifUrl(null)
     } finally {
-      setLoadingGif(false)
+      if (version === gifFetchVersionRef.current) setLoadingGif(false)
     }
   }
 
@@ -503,7 +516,9 @@ export default function SimulationPage() {
   
     fetchGif()
     return () => {
-      if (gifUrl) URL.revokeObjectURL(gifUrl)
+      gifFetchVersionRef.current += 1
+      if (gifUrlRef.current) URL.revokeObjectURL(gifUrlRef.current)
+      gifUrlRef.current = null
     }
   }, [id])
 
@@ -739,6 +754,17 @@ export default function SimulationPage() {
     try{
       setIsPhaseSubmitting(true)
       const result = await apiFetch(`/experiments/${id}/phase-${phase}`, {method:'POST'}) as PhaseStartResponse
+      if (phase === 1) {
+        gifFetchVersionRef.current += 1
+        replaceGifUrl(null)
+        setLoadingGif(false)
+        setShowGif(false)
+        animatedGifJobIdRef.current = null
+        setIsAnimatedGifPolling(false)
+        setHasPhase1(false)
+        setHasOutput(false)
+        setHtmlContent(null)
+      }
       trackedJobIdRef.current = result?.job_id ?? null
       toast.success(`Phase ${phase} started`)
       if (trackedJobIdRef.current) {
@@ -760,7 +786,7 @@ export default function SimulationPage() {
       // Queue the animated GIF only after Phase 1 succeeds.
       // It's a nice-to-have — its failure must not read as a Phase 1 failure.
       try {
-        await apiFetch(`/experiments/${id}/create-gif`, {
+        const result = await apiFetch(`/experiments/${id}/create-gif`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -777,7 +803,12 @@ export default function SimulationPage() {
             long: 0,
             shells: shellColors,
           }),
-        })
+        }) as PhaseStartResponse
+        animatedGifJobIdRef.current = result?.job_id ?? null
+        if (animatedGifJobIdRef.current) {
+          setIsAnimatedGifPolling(true)
+          setLiveMessage('Generating animated GIF')
+        }
       } catch (err) {
         console.error('Failed to queue animated GIF job', err)
       }

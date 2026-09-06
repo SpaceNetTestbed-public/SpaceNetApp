@@ -78,3 +78,27 @@ it.each(['failed', 'canceled', 'finished'])('queues animated GIF only after Phas
   const animatedCalls = mockApi.mock.calls.filter(([path, options]) => path.endsWith('/create-gif') && JSON.parse(options!.body as string).make_gif)
   expect(animatedCalls).toHaveLength(status === 'finished' ? 1 : 0)
 })
+
+it('revokes the old GIF on rerun and displays the tracked replacement after completion', async () => {
+  let blobNumber = 0
+  URL.createObjectURL = jest.fn(() => `blob:render-${++blobNumber}`)
+  global.fetch = jest.fn(async () => ({ ok: true, text: async () => '<html>output</html>', blob: async () => new Blob(['gif']) })) as jest.Mock
+  const { unmount } = render(<SimulationPage />)
+  fireEvent.click(await screen.findByRole('button', { name: 'View GIF' }))
+  const oldUrl = screen.getByAltText('Simulation GIF').getAttribute('src')
+  fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Run Phase 1' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'Override' }))
+  await waitFor(() => expect(URL.revokeObjectURL).toHaveBeenCalledWith(oldUrl))
+  expect(screen.queryByRole('button', { name: 'View GIF' })).not.toBeInTheDocument()
+  jobs = [{ job_id: 'phase1', status: 'finished' }]
+  await poll(0)
+  expect(await screen.findByRole('button', { name: 'Run GIF' })).toBeInTheDocument()
+  jobs = [{ job_id: 'output-gif', status: 'finished' }]
+  await poll(2)
+  fireEvent.click(await screen.findByRole('button', { name: 'View GIF' }))
+  const newUrl = screen.getByAltText('Simulation GIF').getAttribute('src')
+  expect(newUrl).not.toBe(oldUrl)
+  unmount()
+  expect(URL.revokeObjectURL).toHaveBeenCalledWith(newUrl)
+})

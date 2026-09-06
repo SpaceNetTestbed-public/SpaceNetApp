@@ -44,6 +44,13 @@ def process_config(experiment_id):
                 os.remove(zip)
             if os.path.isdir(folder):
                 shutil.rmtree(folder)
+            zip = f'local_workspace/{experiment_id}/gifs.zip'
+            folder = f'local_workspace/{experiment_id}/gifs'
+            # Includes each render directory and its sibling ZIP archive.
+            if os.path.isfile(zip):
+                os.remove(zip)
+            if os.path.isdir(folder):
+                shutil.rmtree(folder)
             phase_logs, return_code = run_phase_1(experiment_id)
             logs += phase_logs
             # The simulator can partially fail (e.g. a worker thread crashes)
