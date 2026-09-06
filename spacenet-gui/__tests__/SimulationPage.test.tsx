@@ -54,3 +54,27 @@ it('offers exactly TimeStepCount offsets and renders the last valid timestep', a
   await poll(1)
   expect(await screen.findByTitle('Visualization output')).toBeInTheDocument()
 })
+
+it('reports a failed globe job with its actual logs on the next poll', async () => {
+  render(<SimulationPage />)
+  await screen.findByTitle('Visualization output')
+  fireEvent.click(screen.getByRole('button', { name: 'Run Visualization' }))
+  await waitFor(() => expect(mockApi).toHaveBeenCalledWith('/experiments/1/create-gif', expect.anything()))
+  jobs = [{ job_id: 'output', status: 'failed' }]
+  await poll(1)
+  expect(await screen.findByText(/GIF-generation job failed while rendering the visualization: FileNotFoundError/)).toBeInTheDocument()
+  expect(screen.queryByText(/re-run Phase 1/)).not.toBeInTheDocument()
+})
+
+it.each(['failed', 'canceled', 'finished'])('queues animated GIF only after Phase 1 success (%s)', async status => {
+  phase1 = false
+  render(<SimulationPage />)
+  fireEvent.click(await screen.findByRole('button', { name: 'Run Phase 1' }))
+  await waitFor(() => expect(mockApi).toHaveBeenCalledWith('/experiments/1/phase-1', expect.anything()))
+  expect(mockApi.mock.calls.filter(([path]) => path.endsWith('/create-gif'))).toHaveLength(0)
+  jobs = [{ job_id: 'phase1', status }]
+  phase1 = status === 'finished'
+  await poll(0)
+  const animatedCalls = mockApi.mock.calls.filter(([path, options]) => path.endsWith('/create-gif') && JSON.parse(options!.body as string).make_gif)
+  expect(animatedCalls).toHaveLength(status === 'finished' ? 1 : 0)
+})

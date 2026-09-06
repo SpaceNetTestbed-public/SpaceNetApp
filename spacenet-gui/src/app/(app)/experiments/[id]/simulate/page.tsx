@@ -187,7 +187,6 @@ export default function SimulationPage() {
 
   /* ----------------------------- GIF Polling ----------------------------- */
   const [isGifPolling, setIsGifPolling] = useState(false)
-  const gifPollAttemptsRef = useRef(0)
   const [vizError, setVizError] = useState<string | null>(null)
   /** Prevents double auto-launch of the globe renderer on mount + phase complete */
   const vizAutoTriggeredRef = useRef(false)
@@ -251,6 +250,7 @@ export default function SimulationPage() {
         if (currentPhase === 1) {
           vizAutoTriggeredRef.current = false
           triggerVisualizationRef.current(true)
+          void queueAnimatedGif()
         }
       } else if (job.status === 'failed') {
         stopPolling()
@@ -303,11 +303,13 @@ export default function SimulationPage() {
   useJobPolling(pollPhaseTick, { intervalMs: 3000, enabled: pollingPhase !== null })
 
   const gifPollTick = async () => {
-    gifPollAttemptsRef.current += 1
-    const attempts = gifPollAttemptsRef.current
+    const jobId = gifJobIdRef.current
+    if (!jobId) return
     try {
-      const res = await fetch(`${API_URL}/experiments/${id}/gifs/output/file`)
-      if (res.ok) {
+      const jobs = await apiFetch('/jobs') as Array<{ job_id: string; status: string }>
+      const job = jobs.find(j => j.job_id === jobId)
+      if (!job) return
+      if (job.status === 'finished') {
         setIsGifPolling(false)
         setIsVizGenerating(false)
         gifJobIdRef.current = null
@@ -316,23 +318,35 @@ export default function SimulationPage() {
         await fetchOutput()
         return
       }
-      if (attempts >= 60) {
+      if (job.status === 'failed') {
+        vizAutoTriggeredRef.current = true
         setIsGifPolling(false)
         setIsVizGenerating(false)
         gifJobIdRef.current = null
-        const message =
-          'Visualization timed out. Phase 1 output may be incomplete — open Phase 1 Logs or re-run Phase 1, then try again.'
+        setOutputChecked(true)
+        let message = 'GIF-generation job failed while rendering the visualization. Check the Jobs page for logs.'
         setVizError(message)
-        setLiveMessage('Visualization generation timed out')
+        setLiveMessage('GIF-generation job failed')
+        try {
+          const result = await apiFetch(`/jobs/${jobId}/logs`) as { logs?: string }
+          if (result.logs?.trim()) {
+            message = `GIF-generation job failed while rendering the visualization: ${result.logs.trim()}`
+            setVizError(message)
+          }
+        } catch {
+          // Preserve the failure message if logs are unavailable.
+        }
+      } else if (job.status === 'canceled' || job.status === 'cancelled') {
+        setIsGifPolling(false)
+        vizAutoTriggeredRef.current = true
+        setIsVizGenerating(false)
+        gifJobIdRef.current = null
+        setOutputChecked(true)
+        setVizError('GIF-generation job was cancelled.')
+        setLiveMessage('Visualization generation cancelled')
       }
     } catch {
-      if (attempts >= 60) {
-        setIsGifPolling(false)
-        setIsVizGenerating(false)
-        gifJobIdRef.current = null
-        setVizError('Visualization failed — check the Jobs page for errors.')
-        setLiveMessage('Visualization generation timed out')
-      }
+      // A transient jobs lookup failure should not stop polling.
     }
   }
 
@@ -601,7 +615,6 @@ export default function SimulationPage() {
       )
       if (activeGifJob) {
         gifJobIdRef.current = activeGifJob.job_id
-        gifPollAttemptsRef.current = 0
         setIsGifPolling(true)
         return
       }
@@ -640,7 +653,6 @@ export default function SimulationPage() {
       }
       return
     }
-    gifPollAttemptsRef.current = 0
     setIsGifPolling(true)
   }, [
     id,
@@ -724,12 +736,10 @@ export default function SimulationPage() {
       vizAutoTriggeredRef.current = false
       setVizError(null)
     }
-    let phaseStarted = false
     try{
       setIsPhaseSubmitting(true)
       const result = await apiFetch(`/experiments/${id}/phase-${phase}`, {method:'POST'}) as PhaseStartResponse
       trackedJobIdRef.current = result?.job_id ?? null
-      phaseStarted = true
       toast.success(`Phase ${phase} started`)
       if (trackedJobIdRef.current) {
         startPhasePolling(phase)
@@ -744,8 +754,10 @@ export default function SimulationPage() {
       setIsPhaseSubmitting(false)
     }
 
-    if (phase === 1 && phaseStarted) {
-      // Queue the animated GIF behind Phase 1 on the same worker queue.
+  }
+
+  const queueAnimatedGif = async () => {
+      // Queue the animated GIF only after Phase 1 succeeds.
       // It's a nice-to-have — its failure must not read as a Phase 1 failure.
       try {
         await apiFetch(`/experiments/${id}/create-gif`, {
@@ -769,7 +781,6 @@ export default function SimulationPage() {
       } catch (err) {
         console.error('Failed to queue animated GIF job', err)
       }
-    }
   }
 
   /* ----------------------------- Cancel running phase ----------------------------- */
