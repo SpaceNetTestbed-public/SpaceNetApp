@@ -431,7 +431,7 @@ export default function SimulationPage() {
         const count = satConfig.Sim_Length.TimeStepCount
         const duration = satConfig.Sim_Length.TimeStepDuration
         const steps: number[] = []
-        for(let i=0;i<=count;i++) steps.push(i*duration)
+        for(let i=0;i<count;i++) steps.push(i*duration)
         setTimeSteps(steps)
         const names = Object.keys(satConfig.shells ?? {})
         setShellNames(names)
