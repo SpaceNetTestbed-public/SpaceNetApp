@@ -39,6 +39,7 @@ interface PhaseProgress {
 
 // How many trailing log lines to keep for the expandable "live log" console.
 const LOG_TAIL_LINES = 15
+const MAX_MISSED_POLLS = 10 // 10 successful lookups at 3s intervals: about 30s
 
 // Map Phase 1 / Phase 2 stdout markers to a friendly step label.
 // Order matters — checks are run top-to-bottom, later matches win, so the
@@ -175,13 +176,16 @@ export default function SimulationPage() {
   /* ----------------------------- Phase Polling ----------------------------- */
   const [pollingPhase, setPollingPhase] = useState<1 | 2 | null>(null)
   const trackedJobIdRef = useRef<string | null>(null)
+  const phasePollInFlightRef = useRef<string | null>(null)
+  // An override can leave the previous output in place until its worker starts.
+  // Only accept artifact-based completion after output was known to be absent.
+  const phase1OutputAbsentRef = useRef(false)
   // If the /jobs response stops returning our tracked job for
   // MAX_MISSED_POLLS in a row, we assume Redis lost it (worker crash,
   // Redis restart, TTL expiry) and surface an error instead of spinning
   // forever. This does NOT fire during a legitimately long-running phase —
   // the counter resets to 0 on every poll where the job is found.
   const missedPollsRef = useRef(0)
-  const MAX_MISSED_POLLS = 10 // 10 × 3s = 30 seconds
 
   // Live progress info shown inside the running PhaseCard. Populated from the
   // /jobs/<id>/logs endpoint on every poll. Null when no phase is running.
@@ -194,6 +198,9 @@ export default function SimulationPage() {
   const vizAutoTriggeredRef = useRef(false)
   /** RQ job id of the in-flight globe render, used by the viz Cancel button */
   const gifJobIdRef = useRef<string | null>(null)
+  const vizInFlightRef = useRef(false)
+  const gifPollInFlightRef = useRef<string | null>(null)
+  const gifMissedPollsRef = useRef(0)
   /** RQ job id of the in-flight animated GIF render */
   const animatedGifJobIdRef = useRef<string | null>(null)
   const [isAnimatedGifPolling, setIsAnimatedGifPolling] = useState(false)
@@ -216,9 +223,10 @@ export default function SimulationPage() {
     setPhaseProgress(null)
   }
 
-  const startPhasePolling = (phase: 1 | 2, startedAt: number = Date.now()) => {
+  const startPhasePolling = (phase: 1 | 2, startedAt: number = Date.now(), outputWasAbsent = false) => {
     setPollingPhase(phase)
     missedPollsRef.current = 0
+    phase1OutputAbsentRef.current = outputWasAbsent
     setPhaseProgress({ step: 'Starting…', startedAt, lastLine: '', logTail: [], percent: 2 })
     setLiveMessage(`Phase ${phase} running`)
   }
@@ -227,10 +235,41 @@ export default function SimulationPage() {
     const currentPhase = pollingPhase
     if (!currentPhase) return
     const jobId = trackedJobIdRef.current
-    if (!jobId) return
+    if (!jobId || phasePollInFlightRef.current === jobId) return
+    phasePollInFlightRef.current = jobId
     try {
-      const jobs = await apiFetch('/jobs') as Array<{ job_id: string; status: string }>
-      const job = jobs.find(j => j.job_id === jobId)
+      // Reconcile durable output independently of Redis job history, including
+      // when /jobs fails. The shared polling hook also runs this on tab return.
+      const [jobsResult, outputResult] = await Promise.allSettled([
+        apiFetch('/jobs') as Promise<Array<{ job_id: string; status: string }>>,
+        currentPhase === 1
+          ? apiFetch(`/experiments/${id}/has-phase-1`) as Promise<{ data: boolean }>
+          : Promise.resolve(null),
+      ])
+      if (trackedJobIdRef.current !== jobId) return
+      const job = jobsResult.status === 'fulfilled'
+        ? jobsResult.value.find(j => j.job_id === jobId)
+        : undefined
+      const output = outputResult.status === 'fulfilled' ? outputResult.value : null
+      if (output?.data === false) phase1OutputAbsentRef.current = true
+      const outputReady = output?.data === true && phase1OutputAbsentRef.current &&
+        job?.status !== 'queued' && job?.status !== 'failed' &&
+        job?.status !== 'stopped' && job?.status !== 'canceled' && job?.status !== 'cancelled'
+
+      if (job?.status === 'finished' || outputReady) {
+        stopPolling()
+        setLiveMessage(`Phase ${currentPhase} complete`)
+        toast.success(`Phase ${currentPhase} complete`)
+        await checkStatus()
+        if (currentPhase === 1) {
+          vizAutoTriggeredRef.current = false
+          triggerVisualizationRef.current(true)
+          void queueAnimatedGif()
+        }
+        return
+      }
+      // Network errors aren't evidence that a job is missing.
+      if (jobsResult.status === 'rejected') return
       if (!job) {
         missedPollsRef.current += 1
         if (missedPollsRef.current >= MAX_MISSED_POLLS) {
@@ -244,17 +283,7 @@ export default function SimulationPage() {
         return
       }
       missedPollsRef.current = 0
-      if (job.status === 'finished') {
-        stopPolling()
-        setLiveMessage(`Phase ${currentPhase} complete`)
-        toast.success(`Phase ${currentPhase} complete`)
-        await checkStatus()
-        if (currentPhase === 1) {
-          vizAutoTriggeredRef.current = false
-          triggerVisualizationRef.current(true)
-          void queueAnimatedGif()
-        }
-      } else if (job.status === 'failed') {
+      if (job.status === 'failed' || job.status === 'stopped') {
         stopPolling()
         setLiveMessage(`Phase ${currentPhase} failed`)
         toast.error(`Phase ${currentPhase} failed — check the Jobs page for logs`)
@@ -280,6 +309,7 @@ export default function SimulationPage() {
         // previous progress info until the next tick succeeds.
         try {
           const logRes = await apiFetch(`/jobs/${jobId}/logs`) as { logs?: string }
+          if (trackedJobIdRef.current !== jobId) return
           const logs = logRes.logs || ''
           const { percent, detail } = derivePhasePercent(logs, currentPhase)
           setPhaseProgress((prev) => ({
@@ -299,6 +329,8 @@ export default function SimulationPage() {
       // Transient poll failures (network hiccup, backend restart) don't
       // count toward the missed-poll safety net — only a job that's
       // consistently absent from a successful /jobs response does.
+    } finally {
+      if (phasePollInFlightRef.current === jobId) phasePollInFlightRef.current = null
     }
   }
 
@@ -306,12 +338,29 @@ export default function SimulationPage() {
 
   const gifPollTick = async () => {
     const jobId = gifJobIdRef.current
-    if (!jobId) return
+    if (!jobId || gifPollInFlightRef.current === jobId) return
+    gifPollInFlightRef.current = jobId
     try {
       const jobs = await apiFetch('/jobs') as Array<{ job_id: string; status: string }>
+      if (gifJobIdRef.current !== jobId) return
       const job = jobs.find(j => j.job_id === jobId)
-      if (!job) return
+      if (!job) {
+        gifMissedPollsRef.current += 1
+        if (gifMissedPollsRef.current >= MAX_MISSED_POLLS) {
+          vizAutoTriggeredRef.current = true
+          vizInFlightRef.current = false
+          gifJobIdRef.current = null
+          setIsGifPolling(false)
+          setIsVizGenerating(false)
+          setOutputChecked(true)
+          setVizError('Could not find the visualization job — it may have expired. Try running the visualization again.')
+          setLiveMessage('Visualization job unavailable')
+        }
+        return
+      }
+      gifMissedPollsRef.current = 0
       if (job.status === 'finished') {
+        vizInFlightRef.current = false
         setIsGifPolling(false)
         setIsVizGenerating(false)
         gifJobIdRef.current = null
@@ -321,6 +370,7 @@ export default function SimulationPage() {
         return
       }
       if (job.status === 'failed') {
+        vizInFlightRef.current = false
         vizAutoTriggeredRef.current = true
         setIsGifPolling(false)
         setIsVizGenerating(false)
@@ -331,7 +381,7 @@ export default function SimulationPage() {
         setLiveMessage('GIF-generation job failed')
         try {
           const result = await apiFetch(`/jobs/${jobId}/logs`) as { logs?: string }
-          if (result.logs?.trim()) {
+          if (!vizInFlightRef.current && result.logs?.trim()) {
             message = `GIF-generation job failed while rendering the visualization: ${result.logs.trim()}`
             setVizError(message)
           }
@@ -339,6 +389,7 @@ export default function SimulationPage() {
           // Preserve the failure message if logs are unavailable.
         }
       } else if (job.status === 'canceled' || job.status === 'cancelled') {
+        vizInFlightRef.current = false
         setIsGifPolling(false)
         vizAutoTriggeredRef.current = true
         setIsVizGenerating(false)
@@ -349,6 +400,8 @@ export default function SimulationPage() {
       }
     } catch {
       // A transient jobs lookup failure should not stop polling.
+    } finally {
+      if (gifPollInFlightRef.current === jobId) gifPollInFlightRef.current = null
     }
   }
 
@@ -595,7 +648,7 @@ export default function SimulationPage() {
 
   /* ----------------------------- Run visualization ----------------------------- */
   const triggerVisualization = useCallback(async (auto = false) => {
-    if (isVizGenerating || isGifPolling) return
+    if (vizInFlightRef.current || isVizGenerating || isGifPolling) return
     if (shellNames.length === 0 || timeSteps.length === 0) return
 
     if (auto) {
@@ -603,6 +656,10 @@ export default function SimulationPage() {
       vizAutoTriggeredRef.current = true
     }
 
+    // React state disables the button on the next render; the ref closes the
+    // same-render manual/automatic launch race before the first await.
+    vizInFlightRef.current = true
+    gifMissedPollsRef.current = 0
     setIsVizGenerating(true)
     setVizError(null)
     setHasOutput(false)
@@ -657,8 +714,11 @@ export default function SimulationPage() {
           shells: shellColors,
         }),
       }) as PhaseStartResponse
-      gifJobIdRef.current = result?.job_id ?? null
+      if (!result?.job_id) throw new Error('No visualization job ID was returned. Try running the visualization again.')
+      gifJobIdRef.current = result.job_id
     } catch (err) {
+      vizInFlightRef.current = false
+      vizAutoTriggeredRef.current = true
       const message = getApiErrorMessage(err, 'Failed to generate visualization')
       setVizError(message)
       setIsVizGenerating(false)
@@ -768,7 +828,7 @@ export default function SimulationPage() {
       trackedJobIdRef.current = result?.job_id ?? null
       toast.success(`Phase ${phase} started`)
       if (trackedJobIdRef.current) {
-        startPhasePolling(phase)
+        startPhasePolling(phase, Date.now(), phase === 1 && !hasPhase1)
       } else {
         // Fallback if backend doesn't return job_id
         setTimeout(checkStatus, 3000)
@@ -834,7 +894,10 @@ export default function SimulationPage() {
     if (!jobId) return
     try {
       await apiFetch(`/jobs/${jobId}/cancel`, { method: 'DELETE' })
+      if (gifJobIdRef.current !== jobId) return
       gifJobIdRef.current = null
+      vizInFlightRef.current = false
+      gifMissedPollsRef.current = 0
       setIsGifPolling(false)
       setIsVizGenerating(false)
       // Keep vizAutoTriggeredRef set so the auto-launch effect doesn't

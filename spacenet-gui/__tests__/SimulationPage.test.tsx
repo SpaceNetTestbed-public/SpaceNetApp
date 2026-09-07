@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import SimulationPage from '@/app/(app)/experiments/[id]/simulate/page'
 import { apiFetch } from '@/lib/api'
 import { useJobPolling } from '@/hooks/useJobPolling'
+import { toast } from 'sonner'
 
 jest.mock('next/navigation', () => ({ useParams: () => ({ id: '1' }), useRouter: () => ({ push: jest.fn() }) }))
 jest.mock('@/lib/api', () => ({ apiFetch: jest.fn(), API_URL: '/api', ApiError: class extends Error {} }))
@@ -14,6 +15,7 @@ let phase1 = true
 
 beforeEach(() => {
   jest.clearAllMocks()
+  jest.mocked(useJobPolling).mockReset()
   jobs = []
   phase1 = true
   URL.createObjectURL = jest.fn(() => 'blob:test')
@@ -32,6 +34,218 @@ beforeEach(() => {
     if (path.endsWith('/phase-1')) return { job_id: 'phase1' }
     if (path.endsWith('/logs')) return { logs: 'FileNotFoundError: missing required TLE file' }
     throw new Error(`Unexpected API request: ${path}`)
+  })
+})
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>(done => { resolve = done })
+  return { promise, resolve }
+}
+
+async function startVisualization() {
+  render(<SimulationPage />)
+  await screen.findByTitle('Visualization output')
+  fireEvent.click(screen.getByRole('button', { name: 'Run Visualization' }))
+  await waitFor(() => expect(mockApi).toHaveBeenCalledWith('/experiments/1/create-gif', expect.anything()))
+}
+
+it('ends visualization polling after ten missing lookups and allows a fresh retry', async () => {
+  await startVisualization()
+  for (let i = 0; i < 9; i++) await poll(1)
+  expect(screen.getByRole('button', { name: /Generating/ })).toBeDisabled()
+  await poll(1)
+  expect(screen.getByText(/Could not find the visualization job/)).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: /Generating/ })).not.toBeInTheDocument()
+  expect(mockApi.mock.calls.filter(([path]) => path.endsWith('/create-gif'))).toHaveLength(1)
+
+  fireEvent.click(screen.getByRole('button', { name: 'Retry visualization' }))
+  await waitFor(() => expect(mockApi.mock.calls.filter(([path]) => path.endsWith('/create-gif'))).toHaveLength(2))
+  await poll(1) // The new job gets a fresh missing-job budget.
+  expect(screen.queryByText(/Could not find the visualization job/)).not.toBeInTheDocument()
+  jobs = [{ job_id: 'output', status: 'finished' }]
+  await poll(1)
+  expect(await screen.findByTitle('Visualization output')).toBeInTheDocument()
+})
+
+it('resets missing-job counts when found and never times out a tracked long visualization', async () => {
+  await startVisualization()
+  for (let i = 0; i < 9; i++) await poll(1)
+  jobs = [{ job_id: 'output', status: 'started' }]
+  for (let i = 0; i < 65; i++) await poll(1)
+  jobs = []
+  for (let i = 0; i < 9; i++) await poll(1)
+  expect(screen.getByRole('button', { name: /Generating/ })).toBeDisabled()
+  await poll(1)
+  expect(screen.getByText(/Could not find the visualization job/)).toBeInTheDocument()
+})
+
+it('does not count network failures as missing visualization jobs', async () => {
+  await startVisualization()
+  for (let i = 0; i < 12; i++) {
+    mockApi.mockRejectedValueOnce(new Error('Network unavailable'))
+    await poll(1)
+  }
+  await poll(1)
+  expect(screen.getByRole('button', { name: /Generating/ })).toBeDisabled()
+  jobs = [{ job_id: 'output', status: 'finished' }]
+  await poll(1)
+  expect(await screen.findByTitle('Visualization output')).toBeInTheDocument()
+})
+
+it('guards two visualization launches in the same render while the preflight is pending', async () => {
+  render(<SimulationPage />)
+  await screen.findByTitle('Visualization output')
+  const lookup = deferred<typeof jobs>()
+  mockApi.mockImplementationOnce(() => lookup.promise)
+  const button = screen.getByRole('button', { name: 'Run Visualization' })
+  act(() => {
+    button.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    button.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+  })
+  expect(screen.getByRole('button', { name: /Generating/ })).toBeDisabled()
+  await act(async () => { lookup.resolve([]) })
+  expect(mockApi.mock.calls.filter(([path]) => path.endsWith('/create-gif'))).toHaveLength(1)
+})
+
+it('reports a missing job ID in the launch response and allows retry', async () => {
+  const implementation = mockApi.getMockImplementation()!
+  mockApi.mockImplementation(async (path, options) => path.endsWith('/create-gif') ? {} : implementation(path, options))
+  await startVisualization()
+  expect(await screen.findByText(/No visualization job ID was returned/)).toBeInTheDocument()
+  mockApi.mockImplementation(implementation)
+  fireEvent.click(screen.getByRole('button', { name: 'Retry visualization' }))
+  await waitFor(() => expect(mockApi.mock.calls.filter(([path]) => path.endsWith('/create-gif'))).toHaveLength(2))
+  jobs = [{ job_id: 'output', status: 'finished' }]
+  await poll(1)
+  expect(await screen.findByTitle('Visualization output')).toBeInTheDocument()
+})
+
+it('ignores an old visualization poll arriving after cancellation and retry', async () => {
+  await startVisualization()
+  const lookup = deferred<typeof jobs>()
+  mockApi.mockReturnValueOnce(lookup.promise)
+  const calls = jest.mocked(useJobPolling).mock.calls
+  const tick = calls[calls.length - 2][0]
+  let pending!: void | Promise<void>
+  act(() => { pending = tick() })
+  const implementation = mockApi.getMockImplementation()!
+  mockApi.mockImplementation(async (path, options) => {
+    if (path.endsWith('/cancel')) return {}
+    if (path.endsWith('/create-gif')) return { job_id: 'replacement' }
+    return implementation(path, options)
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel visualization' }))
+  await screen.findAllByRole('button', { name: 'Run Visualization' })
+  fireEvent.click(screen.getAllByRole('button', { name: 'Run Visualization' })[0])
+  await waitFor(() => expect(mockApi.mock.calls.filter(([path]) => path.endsWith('/create-gif'))).toHaveLength(2))
+  await act(async () => {
+    lookup.resolve([{ job_id: 'output', status: 'finished' }])
+    await pending
+  })
+  expect(screen.getByRole('button', { name: /Generating/ })).toBeDisabled()
+  jobs = [{ job_id: 'replacement', status: 'finished' }]
+  await poll(1)
+  expect(await screen.findByTitle('Visualization output')).toBeInTheDocument()
+})
+
+describe('Phase 1 with the real polling hook', () => {
+  beforeEach(() => {
+    jest.useFakeTimers()
+    Object.defineProperty(document, 'hidden', { configurable: true, value: false })
+    jest.mocked(useJobPolling).mockImplementation(jest.requireActual('@/hooks/useJobPolling').useJobPolling)
+    phase1 = false
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+    Object.defineProperty(document, 'hidden', { configurable: true, value: false })
+  })
+
+  async function advance(milliseconds: number) {
+    // Flush requests between ticks, just as separate browser timer tasks do.
+    for (let remaining = milliseconds; remaining > 0; remaining -= 3000) {
+      await act(async () => { jest.advanceTimersByTime(Math.min(remaining, 3000)) })
+    }
+  }
+
+  async function startPhase() {
+    render(<SimulationPage />)
+    await act(async () => {})
+    fireEvent.click(screen.getByRole('button', { name: 'Run Phase 1' }))
+    await act(async () => {})
+    jobs = [{ job_id: 'phase1', status: 'started' }]
+  }
+
+  it.each(['finished', 'started', 'missing', 'network-error'])('recovers a 15-minute run when job status is %s at completion', async status => {
+    await startPhase()
+    const before = mockApi.mock.calls.filter(([path]) => path === '/jobs').length
+    await advance(15 * 60 * 1000)
+    expect(mockApi.mock.calls.filter(([path]) => path === '/jobs')).toHaveLength(before + 300)
+    expect(screen.getByRole('button', { name: 'Phase 1 is running' })).toBeDisabled()
+    phase1 = true
+    jobs = status === 'missing' ? [] : [{ job_id: 'phase1', status }]
+    if (status === 'network-error') {
+      const implementation = mockApi.getMockImplementation()!
+      mockApi.mockImplementation(async (path, options) => {
+        if (path === '/jobs') throw new Error('Jobs unavailable')
+        return implementation(path, options)
+      })
+    }
+    await advance(3000)
+    expect(screen.getByText('Output Ready')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Phase 1 is running' })).not.toBeInTheDocument()
+    const animatedCalls = mockApi.mock.calls.filter(([path, options]) => path.endsWith('/create-gif') && JSON.parse(options!.body as string).make_gif)
+    expect(animatedCalls).toHaveLength(1)
+    await advance(9000)
+    expect(toast.success).toHaveBeenCalledWith('Phase 1 complete')
+    expect(jest.mocked(toast.success).mock.calls.filter(([message]) => message === 'Phase 1 complete')).toHaveLength(1)
+  })
+
+  it('reconciles immediately after returning from a hidden tab with expired job history', async () => {
+    await startPhase()
+    await advance(3000)
+    Object.defineProperty(document, 'hidden', { configurable: true, value: true })
+    act(() => { document.dispatchEvent(new Event('visibilitychange')) })
+    const before = mockApi.mock.calls.filter(([path]) => path === '/jobs').length
+    await advance(15 * 60 * 1000)
+    expect(mockApi.mock.calls.filter(([path]) => path === '/jobs')).toHaveLength(before)
+    phase1 = true
+    jobs = []
+    Object.defineProperty(document, 'hidden', { configurable: true, value: false })
+    await act(async () => { document.dispatchEvent(new Event('visibilitychange')) })
+    expect(screen.getByText('Output Ready')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Phase 1 is running' })).not.toBeInTheDocument()
+  })
+
+  it('does not accept old output from an override until it has been cleared', async () => {
+    phase1 = true
+    render(<SimulationPage />)
+    await act(async () => {})
+    fireEvent.click(screen.getByRole('button', { name: 'Run Phase 1' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Override' }))
+    await act(async () => {})
+    jobs = [{ job_id: 'phase1', status: 'queued' }]
+    await advance(30000)
+    jobs = [{ job_id: 'phase1', status: 'started' }]
+    await advance(3000)
+    expect(screen.getByRole('button', { name: 'Phase 1 is running' })).toBeDisabled()
+    phase1 = false
+    await advance(3000)
+    phase1 = true
+    await advance(3000)
+    expect(screen.getByText('Output Ready')).toBeInTheDocument()
+  })
+
+  it.each(['failed', 'stopped', 'canceled', 'cancelled'])('honors terminal status %s even when artifacts exist', async status => {
+    await startPhase()
+    await advance(3000)
+    jobs = [{ job_id: 'phase1', status }]
+    phase1 = true
+    await advance(3000)
+    expect(screen.queryByRole('button', { name: 'Phase 1 is running' })).not.toBeInTheDocument()
+    expect(toast.success).not.toHaveBeenCalledWith('Phase 1 complete')
+    expect(mockApi.mock.calls.filter(([path]) => path.endsWith('/create-gif'))).toHaveLength(0)
   })
 })
 
