@@ -144,11 +144,16 @@ export default function EditExperimentPage() {
     setSavingAndRunning(true)
     try {
       const ok = await handleSave(config)
-      if (ok) router.push(`/experiments/${id}/simulate`)
+      if (!ok) return
+
+      await apiFetch(`/experiments/${id}/phase-1`, { method: 'POST' })
+      toast.success('Phase 1 queued')
+      router.push(`/experiments/${id}/simulate`)
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Failed to start Phase 1'), { id: 'experiment-phase-start-1' })
     } finally {
       setSavingAndRunning(false)
     }
-    // TODO: Start simulation via API
   }
 
   const handleImportYAML = () => {
@@ -175,7 +180,7 @@ export default function EditExperimentPage() {
   }
 
   return (
-    <div className="min-h-screen p-6 sm:p-8">
+    <div className="min-h-screen p-6 sm:p-8 pb-28 sm:pb-32">
       <ExperimentEditHeader
         experimentName={config.experimentName}
         saving={saving}
