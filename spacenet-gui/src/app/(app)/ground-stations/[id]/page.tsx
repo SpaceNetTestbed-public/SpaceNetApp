@@ -147,7 +147,7 @@ export default function EditStationSetPage() {
       await apiFetch(`/ground_station_file/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(setData?.stations)
+        body: JSON.stringify({ name: setData?.name, stations: setData?.stations })
       })
 
       toast.success("Saved")
