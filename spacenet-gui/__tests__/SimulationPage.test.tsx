@@ -14,7 +14,7 @@ let jobs: Array<{ job_id: string; status: string }> = []
 let phase1 = true
 
 beforeEach(() => {
-  jest.clearAllMocks()
+  jest.resetAllMocks()
   jest.mocked(useJobPolling).mockReset()
   jobs = []
   phase1 = true
@@ -80,17 +80,25 @@ it('resets missing-job counts when found and never times out a tracked long visu
   expect(screen.getByText(/Could not find the visualization job/)).toBeInTheDocument()
 })
 
-it('does not count network failures as missing visualization jobs', async () => {
+it('stops polling and shows an error after 5 consecutive request failures', async () => {
   await startVisualization()
-  for (let i = 0; i < 12; i++) {
+  for (let i = 0; i < 4; i++) {
     mockApi.mockRejectedValueOnce(new Error('Network unavailable'))
     await poll(1)
   }
-  await poll(1)
+
   expect(screen.getByRole('button', { name: /Generating/ })).toBeDisabled()
-  jobs = [{ job_id: 'output', status: 'finished' }]
+  expect(screen.queryByText('Visualization needs attention')).not.toBeInTheDocument()
+  const callsAfterFourFailures = jest.mocked(useJobPolling).mock.calls
+  expect(callsAfterFourFailures[callsAfterFourFailures.length - 2][1]?.enabled).toBe(true)
+
+  mockApi.mockRejectedValueOnce(new Error('Network unavailable'))
   await poll(1)
-  expect(await screen.findByTitle('Visualization output')).toBeInTheDocument()
+
+  expect(screen.getByText(/Visualization status unavailable after repeated request failures/)).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: /Generating/ })).not.toBeInTheDocument()
+  const callsAfterFiveFailures = jest.mocked(useJobPolling).mock.calls
+  expect(callsAfterFiveFailures[callsAfterFiveFailures.length - 2][1]?.enabled).toBe(false)
 })
 
 it('guards two visualization launches in the same render while the preflight is pending', async () => {
