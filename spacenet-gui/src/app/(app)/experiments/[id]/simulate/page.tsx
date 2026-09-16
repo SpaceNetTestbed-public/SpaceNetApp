@@ -40,6 +40,27 @@ interface PhaseProgress {
 // How many trailing log lines to keep for the expandable "live log" console.
 const LOG_TAIL_LINES = 15
 const MAX_MISSED_POLLS = 10 // 10 successful lookups at 3s intervals: about 30s
+const MAX_POLL_REQUEST_FAILURES = 5
+const POLL_REQUEST_TIMEOUT_MS = 30000
+
+async function fetchPollingJson<T>(endpoint: string): Promise<T> {
+  const controller = new AbortController()
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    // Race the entire request, including JSON parsing, against the deadline.
+    return await Promise.race([
+      apiFetch(endpoint, { signal: controller.signal }) as Promise<T>,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          controller.abort()
+          reject(new Error('Polling request timed out'))
+        }, POLL_REQUEST_TIMEOUT_MS)
+      }),
+    ])
+  } finally {
+    if (timer !== undefined) clearTimeout(timer)
+  }
+}
 
 // Map Phase 1 / Phase 2 stdout markers to a friendly step label.
 // Order matters — checks are run top-to-bottom, later matches win, so the
@@ -201,8 +222,12 @@ export default function SimulationPage() {
   const vizInFlightRef = useRef(false)
   const gifPollInFlightRef = useRef<string | null>(null)
   const gifMissedPollsRef = useRef(0)
+  const gifRequestFailuresRef = useRef(0)
   /** RQ job id of the in-flight animated GIF render */
   const animatedGifJobIdRef = useRef<string | null>(null)
+  const animatedGifPollInFlightRef = useRef<string | null>(null)
+  const animatedGifRequestFailuresRef = useRef(0)
+  const [animatedGifError, setAnimatedGifError] = useState<string | null>(null)
   const [isAnimatedGifPolling, setIsAnimatedGifPolling] = useState(false)
   const triggerVisualizationRef = useRef<(auto?: boolean) => void>(() => {})
 
@@ -341,8 +366,9 @@ export default function SimulationPage() {
     if (!jobId || gifPollInFlightRef.current === jobId) return
     gifPollInFlightRef.current = jobId
     try {
-      const jobs = await apiFetch('/jobs') as Array<{ job_id: string; status: string }>
+      const jobs = await fetchPollingJson<Array<{ job_id: string; status: string }>>('/jobs')
       if (gifJobIdRef.current !== jobId) return
+      gifRequestFailuresRef.current = 0
       const job = jobs.find(j => j.job_id === jobId)
       if (!job) {
         gifMissedPollsRef.current += 1
@@ -369,7 +395,7 @@ export default function SimulationPage() {
         await fetchOutput()
         return
       }
-      if (job.status === 'failed') {
+      if (job.status === 'failed' || job.status === 'stopped') {
         vizInFlightRef.current = false
         vizAutoTriggeredRef.current = true
         setIsGifPolling(false)
@@ -380,7 +406,7 @@ export default function SimulationPage() {
         setVizError(message)
         setLiveMessage('GIF-generation job failed')
         try {
-          const result = await apiFetch(`/jobs/${jobId}/logs`) as { logs?: string }
+          const result = await fetchPollingJson<{ logs?: string }>(`/jobs/${jobId}/logs`)
           if (!vizInFlightRef.current && result.logs?.trim()) {
             message = `GIF-generation job failed while rendering the visualization: ${result.logs.trim()}`
             setVizError(message)
@@ -399,7 +425,18 @@ export default function SimulationPage() {
         setLiveMessage('Visualization generation cancelled')
       }
     } catch {
-      // A transient jobs lookup failure should not stop polling.
+      if (gifJobIdRef.current !== jobId) return
+      gifRequestFailuresRef.current += 1
+      if (gifRequestFailuresRef.current >= MAX_POLL_REQUEST_FAILURES) {
+        vizAutoTriggeredRef.current = true
+        vizInFlightRef.current = false
+        gifJobIdRef.current = null
+        setIsGifPolling(false)
+        setIsVizGenerating(false)
+        setOutputChecked(true)
+        setVizError('Visualization status unavailable after repeated request failures. The job may still be running. Check the Jobs page.')
+        setLiveMessage('Visualization status unavailable')
+      }
     } finally {
       if (gifPollInFlightRef.current === jobId) gifPollInFlightRef.current = null
     }
@@ -409,11 +446,13 @@ export default function SimulationPage() {
 
   const animatedGifPollTick = async () => {
     const jobId = animatedGifJobIdRef.current
-    if (!jobId) return
+    if (!jobId || animatedGifPollInFlightRef.current === jobId) return
+    animatedGifPollInFlightRef.current = jobId
 
     try {
-      const jobs = await apiFetch('/jobs') as Array<{ job_id: string; status: string }>
+      const jobs = await fetchPollingJson<Array<{ job_id: string; status: string }>>('/jobs')
       if (animatedGifJobIdRef.current !== jobId) return
+      animatedGifRequestFailuresRef.current = 0
       const job = jobs.find(j => j.job_id === jobId)
       if (!job) return
 
@@ -423,9 +462,10 @@ export default function SimulationPage() {
         await fetchGif()
         setLiveMessage('Animated GIF ready')
         toast.success('Animated GIF ready')
-      } else if (job.status === 'failed') {
+      } else if (job.status === 'failed' || job.status === 'stopped') {
         animatedGifJobIdRef.current = null
         setIsAnimatedGifPolling(false)
+        setAnimatedGifError('Animated GIF generation failed. Check the Jobs page for logs.')
         setLiveMessage('Animated GIF generation failed')
         toast.error('Animated GIF generation failed — check the Jobs page for logs')
       } else if (job.status === 'canceled' || job.status === 'cancelled') {
@@ -435,7 +475,16 @@ export default function SimulationPage() {
         toast.info('Animated GIF generation was cancelled')
       }
     } catch {
-      // A transient jobs lookup failure should not stop polling.
+      if (animatedGifJobIdRef.current !== jobId) return
+      animatedGifRequestFailuresRef.current += 1
+      if (animatedGifRequestFailuresRef.current >= MAX_POLL_REQUEST_FAILURES) {
+        animatedGifJobIdRef.current = null
+        setIsAnimatedGifPolling(false)
+        setAnimatedGifError('Animated GIF status unavailable after repeated request failures. The job may still be running. Check the Jobs page.')
+        setLiveMessage('Animated GIF status unavailable')
+      }
+    } finally {
+      if (animatedGifPollInFlightRef.current === jobId) animatedGifPollInFlightRef.current = null
     }
   }
 
@@ -660,6 +709,7 @@ export default function SimulationPage() {
     // same-render manual/automatic launch race before the first await.
     vizInFlightRef.current = true
     gifMissedPollsRef.current = 0
+    gifRequestFailuresRef.current = 0
     setIsVizGenerating(true)
     setVizError(null)
     setHasOutput(false)
@@ -763,6 +813,8 @@ export default function SimulationPage() {
   }
 
   const handleCreateAniGif = async () => {
+    animatedGifRequestFailuresRef.current = 0
+    setAnimatedGifError(null)
     try {
       setIsVizGenerating(true)
       const result = await apiFetch(`/experiments/${id}/create-gif`, {
@@ -821,6 +873,7 @@ export default function SimulationPage() {
         setShowGif(false)
         animatedGifJobIdRef.current = null
         setIsAnimatedGifPolling(false)
+        setAnimatedGifError(null)
         setHasPhase1(false)
         setHasOutput(false)
         setHtmlContent(null)
@@ -843,6 +896,8 @@ export default function SimulationPage() {
   }
 
   const queueAnimatedGif = async () => {
+      animatedGifRequestFailuresRef.current = 0
+      setAnimatedGifError(null)
       // Queue the animated GIF only after Phase 1 succeeds.
       // It's a nice-to-have — its failure must not read as a Phase 1 failure.
       try {
@@ -992,6 +1047,14 @@ export default function SimulationPage() {
       </div>
       )}
       {/* ==================== Visualization + Controls ==================== */}
+      {animatedGifError && (
+        <ErrorState
+          title="Animated GIF needs attention"
+          message={animatedGifError}
+          onRetry={() => router.push('/jobs')}
+          retryLabel="Open Jobs"
+        />
+      )}
       {!hasPhase1 ? (
         <div role="status" className="py-20 flex flex-col items-center justify-center border-2 border-dashed border-light-border dark:border-dark-border rounded-xl opacity-60">
           <Play className="h-12 w-12 text-light-text/30 dark:text-dark-subtext/50 mb-4" aria-hidden="true" />

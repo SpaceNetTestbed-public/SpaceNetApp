@@ -85,7 +85,20 @@ export function VisualizationPanel({
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
       {/* ==================== Visualization ==================== */}
       <Card className="lg:col-span-2 overflow-hidden">
-        {!outputChecked ? (
+        {vizError ? (
+          <EmptyState
+            icon={AlertTriangle}
+            title="Visualization needs attention"
+            description={vizError}
+            action={
+              <Button variant="primary" onClick={onCreateGif}>
+                <Play className="h-4 w-4 mr-2" aria-hidden="true" />
+                Retry visualization
+              </Button>
+            }
+            className="h-[600px] py-0"
+          />
+        ) : !outputChecked ? (
           <div className="flex flex-col items-center justify-center gap-3 h-[600px] text-light-text/60 dark:text-dark-subtext">
             <Loader2 className="h-8 w-8 animate-spin" aria-hidden="true" />
             <span className="text-sm font-medium">Checking for output…</span>
@@ -120,19 +133,6 @@ export function VisualizationPanel({
               </Button>
             )}
           </div>
-        ) : vizError ? (
-          <EmptyState
-            icon={AlertTriangle}
-            title="Could not render visualization"
-            description={vizError}
-            action={
-              <Button variant="primary" onClick={onCreateGif}>
-                <Play className="h-4 w-4 mr-2" aria-hidden="true" />
-                Retry visualization
-              </Button>
-            }
-            className="h-[600px] py-0"
-          />
         ) : (
           <EmptyState
             icon={Orbit}
