@@ -24,7 +24,12 @@ export function GifModal({ isOpen, gifUrl, onClose }: GifModalProps) {
         <div className="flex justify-center">
           <img src={gifUrl} alt="Simulation GIF" className="max-h-[600px] w-auto rounded-md" />
         </div>
-        <div className="flex justify-end mt-4">
+        <div className="flex justify-end gap-2 mt-4">
+          <a href={gifUrl} download="simulation.gif">
+            <Button variant="secondary">
+              Download GIF
+            </Button>
+          </a>
           <Button variant="secondary" onClick={onClose}>
             Close
           </Button>
