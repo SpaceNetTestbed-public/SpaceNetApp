@@ -54,8 +54,18 @@ docker compose up
 
 # Stop the stack (keeps all data)
 docker compose down
+```
 
-# Full reset - wipes database and starts clean
+### Restarting the app (keeps your data)
+
+```bash
+docker compose down
+docker compose up --build
+```
+
+### Full reset - permanently deletes all experiments, TLEs, and ground stations from the database (your `local_workspace/` files are NOT affected, but they will no longer show up in the app)
+
+```bash
 docker compose down -v
 docker compose up --build
 ```
@@ -107,6 +117,16 @@ git submodule update --init --recursive
 and wait for it to fully start before running `docker compose` commands.
 
 **Database errors:**
+
+### Restarting the app (keeps your data)
+
+```bash
+docker compose down
+docker compose up --build
+```
+
+### Full reset - permanently deletes all experiments, TLEs, and ground stations from the database (your `local_workspace/` files are NOT affected, but they will no longer show up in the app)
+
 ```bash
 docker compose down -v
 docker compose up --build
