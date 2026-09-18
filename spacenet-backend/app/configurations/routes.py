@@ -472,8 +472,8 @@ def create_main_mn(experiment_id):
         shell_total = shell["orbits"] * shell["sat_per_orbit"]
         total_sats += shell_total
 
-    # data['SourceDeviceName'] += total_sats
-    # data['DestDeviceName'] += total_sats
+    data['SourceDeviceName'] += total_sats
+    data['DestDeviceName'] += total_sats
 
     try:
         create_main_mn_config_wrapper(experiment_id, data)
