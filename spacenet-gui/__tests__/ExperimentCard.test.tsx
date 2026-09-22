@@ -61,6 +61,7 @@ const mockExperiment: Experiment = {
   description: 'First test experiment',
   tags: ['leo', 'starlink'],
   created_at: '2025-01-15T10:00:00Z',
+  hasExperiment: true,
   hasPhase1: true,
   hasPhase2: false,
 }
