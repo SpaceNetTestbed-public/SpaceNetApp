@@ -17,6 +17,7 @@ import { ExperimentEditHeader } from '@/components/experiment/ExperimentEditHead
 import { ExperimentMetadataForm } from '@/components/experiment/ExperimentMetadataForm'
 import { ExperimentEditFooter } from '@/components/experiment/ExperimentEditFooter'
 import { useExperimentSave } from '@/hooks/useExperimentSave'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
 export default function EditExperimentPage() {
   const router = useRouter()
@@ -35,6 +36,11 @@ export default function EditExperimentPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [appName, setAppName] = useState('Ping')
   const [originalAppName, setOriginalAppName] = useState('Ping')
+  // Individual flags (in addition to config.hasBeenRun) so the override
+  // confirmation dialog can name exactly which phase(s) would be discarded.
+  const [hasPhase1, setHasPhase1] = useState(false)
+  const [hasPhase2, setHasPhase2] = useState(false)
+  const [showRunOverrideConfirm, setShowRunOverrideConfirm] = useState(false)
 
   const { saving, savingAndRunning, setSavingAndRunning, handleSave } = useExperimentSave({
     id,
@@ -57,6 +63,8 @@ export default function EditExperimentPage() {
       const loadedAppName = mainMnConfigData?.AppName ?? 'Ping'
       setAppName(loadedAppName)
       setOriginalAppName(loadedAppName)
+      setHasPhase1(data.hasPhase1)
+      setHasPhase2(data.hasPhase2)
       const hasBeenRun = data.hasPhase1 || data.hasPhase2
       const loaded: ExperimentConfig = {
         experimentName: data.name,
@@ -135,12 +143,26 @@ export default function EditExperimentPage() {
     setHasUnsavedChanges(true)
   }
 
-  const handleSaveAndRun = async () => {
+  // Guard: Phase 1 always wipes any existing output.zip/output folder for
+  // this experiment (see clear old-artifacts logic in process_config), and
+  // Phase 2's output depends on Phase 1's, so re-running Phase 1 discards
+  // both. Warn before doing that instead of force-starting silently.
+  const handleSaveAndRun = () => {
     if (!config?.experimentName.trim()) {
       toast.error('Experiment name is required')
       return
     }
 
+    if (hasPhase1 || hasPhase2) {
+      setShowRunOverrideConfirm(true)
+      return
+    }
+
+    void executeSaveAndRun()
+  }
+
+  const executeSaveAndRun = async () => {
+    setShowRunOverrideConfirm(false)
     setSavingAndRunning(true)
     try {
       const ok = await handleSave(config)
@@ -266,6 +288,17 @@ export default function EditExperimentPage() {
         onRestore={handleRestore}
         onSave={() => handleSave(config)}
         onSaveAndRun={handleSaveAndRun}
+      />
+
+      <ConfirmDialog
+        isOpen={showRunOverrideConfirm}
+        title="Override Existing Output"
+        message={`Phase ${hasPhase1 && hasPhase2 ? '1 and Phase 2' : hasPhase1 ? '1' : '2'} output already exists for this experiment. Saving and running will discard it and start a fresh Phase 1 run. Are you sure you want to continue?`}
+        confirmLabel="Override"
+        cancelLabel="Cancel"
+        variant="warning"
+        onConfirm={() => void executeSaveAndRun()}
+        onCancel={() => setShowRunOverrideConfirm(false)}
       />
     </div>
   )
