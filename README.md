@@ -1,23 +1,21 @@
 # SpaceNet Testbed: Local Development Setup
 
 SpaceNet is a LEO satellite constellation simulation and emulation platform
-developed at Virginia Tech (Dr. Kenyon's lab). It simulates real and custom
-satellite constellations, generates network topology and routing tables, and
-emulates network performance using Mininet.
+developed at Virginia Tech by the Space Instrumentation and Systems Lab under the direction of Professor Samantha Kenyon. It simulates real-world and custom generated
+satellite constellations, generates network topology and routing tables, and emulates network performance using Mininet.
 
 ## Prerequisites
 
-- Docker Desktop installed and running
-- Git installed
-- An SSH key added to your GitHub account (submodules clone over SSH)
-- Access granted to `VTSpaceNetLab/VTSpaceNetApp` and its two submodule repos
-  (`VTSpaceNetPhase1`, `VTSpaceNetPhase2`) - this is a private org repo
+- [Git](https://git-scm.com/install/) installed.
+- [Docker Desktop](https://docs.docker.com/get-started/get-docker/) installed and running. On Windows, this requires WSL2 and a Linux distribution. To install WSL, open an administrator mode PowerShell or Command Prompt window and execute:
+  ```powershell
+  wsl --install
+  ```
+  This will activate WSL2 and install an Ubuntu distribution. For Linux or Mac, follow the instructions in the linked documentation.
+- An SSH key added to your GitHub account and paired to your local machine (submodules clone over SSH) <!-- NOTE: Remove this when the public repo submodules are updated to HTTP -->
 - 16GB RAM recommended (simulation is compute-heavy)
-- Windows, Mac, or Linux
 
 ## First-Time Setup
-
-> NOTE: The `yoshwan-dev` branch is the most up-to-date version of the application, HIGHLY RECOMMENDED to follow the steps given below
 
 Run these commands in order:
 
@@ -83,20 +81,21 @@ docker compose up --build
 
 ## Running a Simulation
 
+## Running a Simulation
+
 1. Open http://localhost:3000
 2. Click **New Experiment** and give it a name
-3. Click **Edit Config** to configure the constellation
-4. For quick testing, reduce the constellation:
-   - Orbits: 4, Satellites per orbit: 6, Time steps: 3
-   - This runs in ~5 minutes
+3. Click **Create**
+4. In the Experiment Configuration menu, enter desired parameters.
+    - The default configuration (20 orbits, 15 satellites per orbit) is suitable for quick testing on a laptop.
 5. Click **Run Simulation** → **Run Phase 1**
-6. Monitor progress on the **Jobs** page
-7. When Phase 1 completes, visualization output appears automatically
+6. Monitor progress on the **Experiment Pipeline** or **Jobs** page
+7. When Phase 1 completes, visualization output appears automatically.
+8. After Phase 1 completes, click **Run Phase 2**.
+9. View output either by downloading from the experiment pipeline page or navigating to the folder corresponding to your
+experiment.
 
-**Note:** The default Starlink config (1584 satellites, 12 time steps) can
-take significantly longer and is CPU/memory-intensive - expect it to strain
-a laptop. Use the reduced config above for local testing; use the lab
-compute server for full-scale runs.
+**Note:** Configurations with more satellites/orbits can take significantly longer and are CPU/memory-intensive - expect them to strain a laptop. Use the reduced configuration above for local testing.
 
 ## Common Issues
 
