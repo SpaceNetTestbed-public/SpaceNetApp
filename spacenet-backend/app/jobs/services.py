@@ -113,15 +113,24 @@ def process_config_phase_2(experiment_id):
 
         try:
             zip = f'local_workspace/{experiment_id}/output_mn.zip'
-            folder = f'local_workspace/{experiment_id}/output_mn'
 
             # Note: We DO NOT delete the 'output' folder here, because
-            # Phase 2 needs the output that Phase 1 just created! Its own
-            # stale output_mn artifacts are safe to clear.
+            # Phase 2 needs the output that Phase 1 just created! We also
+            # DO NOT rmtree the 'output_mn' folder itself (unlike Phase 1's
+            # equivalent cleanup above) — Phase 2's submodule has no
+            # interactive overwrite prompt to guard against. Its app
+            # manager (pingApp / iperfApp in
+            # constellation-simulator-main/lib/spacenet_app_manager.py)
+            # already deletes only its own known result files
+            # (ping_results.txt, or iperf_server_results.txt /
+            # iperf_client_results.txt) non-interactively before writing.
+            # rmtree'ing the whole folder here would destroy results from a
+            # different AppName run (e.g. wipe ping_results.txt when
+            # re-running with AppName: Iperf) that this run never asked to
+            # regenerate. Only the stale top-level zip is safe/necessary to
+            # clear, since zip_folder() below rebuilds it fresh either way.
             if os.path.isfile(zip):
                 os.remove(zip)
-            if os.path.isdir(folder):
-                shutil.rmtree(folder)
 
             phase_logs, return_code = run_phase_2(experiment_id)
             logs += phase_logs
