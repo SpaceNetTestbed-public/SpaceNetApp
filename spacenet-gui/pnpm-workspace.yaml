@@ -1,8 +1,6 @@
 packages:
   - .
 
-ignoredBuiltDependencies:
-  - unrs-resolver
-
-onlyBuiltDependencies:
-  - msw
+allowBuilds:
+  msw: true
+  unrs-resolver: true

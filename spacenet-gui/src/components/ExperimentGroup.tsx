@@ -21,15 +21,16 @@ export function ExperimentGroup({ group, groupIndex, onDelete, onDuplicate, onEd
       {/* Group Header */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center justify-between p-4 rounded-card bg-maroon/10 dark:bg-maroon/20 border border-maroon/20 dark:border-maroon/30 mb-4 hover:bg-maroon/15 dark:hover:bg-maroon/25 transition-colors"
+        aria-expanded={isExpanded}
+        className="w-full flex items-center justify-between p-4 rounded-card bg-vt-maroon/10 dark:bg-vt-maroon/20 border border-vt-maroon/20 dark:border-vt-maroon/30 mb-4 hover:bg-vt-maroon/15 dark:hover:bg-vt-maroon/25 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
       >
-        <span className="font-semibold text-maroon dark:text-maroon">
+        <span className="font-semibold text-vt-maroon dark:text-vt-maroon">
           {group.name} ({group.experiments.length} {group.experiments.length === 1 ? 'project' : 'projects'})
         </span>
         {isExpanded ? (
-          <ChevronDown className="h-5 w-5 text-maroon dark:text-maroon" />
+          <ChevronDown className="h-5 w-5 text-vt-maroon dark:text-vt-maroon" aria-hidden="true" />
         ) : (
-          <ChevronRight className="h-5 w-5 text-maroon dark:text-maroon" />
+          <ChevronRight className="h-5 w-5 text-vt-maroon dark:text-vt-maroon" aria-hidden="true" />
         )}
       </button>
 

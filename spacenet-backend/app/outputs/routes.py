@@ -106,8 +106,13 @@ def has_phase_1(experiment_id):
         return jsonify({"error": "Experiment not found"}), 404
         
     zip_path = f"local_workspace/{experiment.id}/output.zip"
+    # A crashed Phase 1 run can leave a partial output.zip behind. The
+    # optimal_routes folder is written by the final pipeline stage (and is
+    # what the plotter and Phase 2 consume), so require it too before
+    # reporting Phase 1 output as usable.
+    optimal_routes_dir = f"local_workspace/{experiment.id}/output/optimal_routes"
 
-    if not os.path.exists(zip_path):
+    if not os.path.exists(zip_path) or not os.path.isdir(optimal_routes_dir):
         return jsonify({"data": False})
 
     return jsonify({"data": True})

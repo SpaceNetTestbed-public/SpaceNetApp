@@ -2,16 +2,23 @@
 
 import { useState, useMemo, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Search, FileText, CheckCircle2, Clock, PlayCircle, XCircle, Loader2, type LucideIcon } from 'lucide-react'
+import { ArrowLeft, Search, FileText, CheckCircle2, Clock, PlayCircle, XCircle, Loader2, ListChecks, Trash2, type LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { apiFetch } from '@/lib/api'
+import { Badge, type BadgeVariant } from '@/components/ui/badge'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { Dialog, DialogHeader, DialogTitle, DialogBody } from '@/components/ui/dialog'
+import { Skeleton } from '@/components/ui/skeleton'
+import { EmptyState } from '@/components/ui/empty-state'
+import { ErrorState } from '@/components/ui/error-state'
+import { apiFetch, ApiError } from '@/lib/api'
 import { getApiErrorMessage } from '@/lib/utils'
 import { toast } from 'sonner'
 import { motion } from 'framer-motion'
 import { useJobPolling } from '@/hooks/useJobPolling'
 
 interface JobStatusBadgeEntry {
-  bg: string
+  variant: BadgeVariant
+  pulse: boolean
   icon: LucideIcon
 }
 
@@ -26,6 +33,14 @@ interface JobItem {
   args: unknown[]
 }
 
+// Statuses the backend allows history deletion for (see the status strings
+// handled in getStatusBadge below; 'stopped' is RQ's status after a
+// kill-horse cancel of a running job).
+const TERMINAL_JOB_STATUSES = ['finished', 'failed', 'canceled', 'cancelled', 'stopped']
+
+const isTerminalJob = (job: JobItem) =>
+  !job.running && TERMINAL_JOB_STATUSES.includes(job.status)
+
 function JobTableSkeleton() {
   return (
     <>
@@ -33,13 +48,13 @@ function JobTableSkeleton() {
         <td colSpan={6} className="sr-only">Loading jobs…</td>
       </tr>
       {Array.from({ length: 5 }).map((_, i) => (
-        <tr key={i} className="animate-pulse">
-          <td className="px-6 py-4"><div className="h-4 bg-light-border dark:bg-dark-border rounded w-40" /></td>
-          <td className="px-6 py-4"><div className="h-4 bg-light-border dark:bg-dark-border rounded w-16" /></td>
-          <td className="px-6 py-4"><div className="h-4 bg-light-border dark:bg-dark-border rounded w-36" /></td>
-          <td className="px-6 py-4"><div className="h-4 bg-light-border dark:bg-dark-border rounded w-8" /></td>
-          <td className="px-6 py-4"><div className="h-5 bg-light-border dark:bg-dark-border rounded-full w-20" /></td>
-          <td className="px-6 py-4"><div className="h-8 bg-light-border dark:bg-dark-border rounded w-16" /></td>
+        <tr key={i}>
+          <td className="px-6 py-4"><Skeleton className="h-4 w-40" /></td>
+          <td className="px-6 py-4"><Skeleton className="h-4 w-16" /></td>
+          <td className="px-6 py-4"><Skeleton className="h-4 w-36" /></td>
+          <td className="px-6 py-4"><Skeleton className="h-4 w-8" /></td>
+          <td className="px-6 py-4"><Skeleton className="h-5 w-20 rounded-full" /></td>
+          <td className="px-6 py-4"><Skeleton className="h-8 w-16" /></td>
         </tr>
       ))}
     </>
@@ -54,6 +69,8 @@ export default function JobQueuePage() {
   const [logs, setLogs] = useState("")
   const [loadingLogsJobId, setLoadingLogsJobId] = useState<string | null>(null)
   const [cancelingJobId, setCancelingJobId] = useState<string | null>(null)
+  const [jobPendingDelete, setJobPendingDelete] = useState<JobItem | null>(null)
+  const [deletingJob, setDeletingJob] = useState(false)
 
   // Fetch queue items on mount & poll every 5s (pauses while the tab is hidden)
   const isMountedRef = useRef(true)
@@ -64,16 +81,26 @@ export default function JobQueuePage() {
     }
   }, [])
 
+  const [loadError, setLoadError] = useState<string | null>(null)
+
   const fetchJobs = async (isFirst: boolean) => {
-    if (isFirst) setLoadingQueue(true)
+    if (isFirst) {
+      setLoadingQueue(true)
+      setLoadError(null)
+    }
     try {
       const data = await apiFetch('/jobs') as JobItem[]
-      if (isMountedRef.current) setJobs(data)
+      if (isMountedRef.current) {
+        setJobs(data)
+        setLoadError(null)
+      }
     } catch (err) {
       if (isFirst) {
         console.error(err)
-        toast.error(getApiErrorMessage(err, 'Failed to load job queue'), { id: 'jobs-queue-load' })
-        if (isMountedRef.current) setJobs([])
+        if (isMountedRef.current) {
+          setLoadError(getApiErrorMessage(err, 'Failed to load job queue'))
+          setJobs([])
+        }
       }
       // poll failures are silently ignored
     } finally {
@@ -123,6 +150,11 @@ export default function JobQueuePage() {
       setLogs(data.logs)
       setSelectedJob(job)
     } catch (err) {
+      if (err instanceof ApiError && err.status === 404) {
+        setLogs('No logs available yet.')
+        setSelectedJob(job)
+        return
+      }
       console.error(err)
       toast.error(getApiErrorMessage(err, 'Failed to load logs'), { id: 'job-logs-load' })
     } finally {
@@ -154,41 +186,58 @@ export default function JobQueuePage() {
     }
   }
 
+  const deleteJob = async () => {
+    if (!jobPendingDelete || deletingJob) return
+    const job = jobPendingDelete
+    setDeletingJob(true)
+    try {
+      await apiFetch(`/jobs/${job.job_id}`, { method: 'DELETE' })
+      // Drop the row locally — the backend no longer returns it, so the
+      // next poll stays consistent without a full reload.
+      setJobs((prev) => prev.filter((j) => j.job_id !== job.job_id))
+      setJobPendingDelete(null)
+      toast.success(`Job for ${job.experiment_name} removed from history`)
+    } catch (err) {
+      console.error(err)
+      toast.error(getApiErrorMessage(err, 'Failed to delete job'), { id: 'job-delete' })
+    } finally {
+      setDeletingJob(false)
+    }
+  }
+
   const getStatusBadge = (job: JobItem) => {
     const { status, running } = job
     const s = running ? 'started' : status
 
     const map: Record<string, JobStatusBadgeEntry> = {
-      queued: {
-        bg: 'bg-yellow-500/20 text-yellow-600 dark:text-yellow-400',
-        icon: Clock,
-      },
-      started: {
-        bg: 'bg-blue-500/20 text-blue-600 dark:text-blue-400',
-        icon: PlayCircle,
-      },
-      finished: {
-        bg: 'bg-green-500/20 text-green-600 dark:text-green-400',
-        icon: CheckCircle2,
-      },
-      failed: {
-        bg: 'bg-red-500/20 text-red-600 dark:text-red-400',
-        icon: XCircle,
-      },
+      queued: { variant: 'warning', pulse: false, icon: Clock },
+      started: { variant: 'info', pulse: true, icon: PlayCircle },
+      finished: { variant: 'success', pulse: false, icon: CheckCircle2 },
+      failed: { variant: 'error', pulse: false, icon: XCircle },
+      canceled: { variant: 'neutral', pulse: false, icon: XCircle },
+      cancelled: { variant: 'neutral', pulse: false, icon: XCircle },
     }
 
     const entry = map[s] ?? map['queued']
     const Icon = entry.icon
 
     return (
-      <div
-        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${entry.bg}`}
-      >
-        <Icon className="h-3.5 w-3.5" />
+      <Badge variant={entry.variant} pulse={entry.pulse}>
+        <Icon className="h-3.5 w-3.5" aria-hidden="true" />
         {s}
-      </div>
+      </Badge>
     )
   }
+
+  // Live summary announced to screen readers on every poll update
+  const jobSummary = useMemo(() => {
+    if (loadingQueue) return ''
+    const running = jobs.filter(j => j.running).length
+    const queued = jobs.filter(j => !j.running && j.status === 'queued').length
+    const finished = jobs.filter(j => j.status === 'finished').length
+    const failed = jobs.filter(j => j.status === 'failed').length
+    return `${jobs.length} jobs — ${running} running, ${queued} queued, ${finished} finished, ${failed} failed`
+  }, [jobs, loadingQueue])
 
   return (
     <div className="min-h-screen p-6 sm:p-8">
@@ -223,16 +272,22 @@ export default function JobQueuePage() {
         className="mb-6"
       >
         <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-light-text/40 dark:text-dark-subtext" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-light-text/40 dark:text-dark-subtext" aria-hidden="true" />
           <input
             type="text"
             placeholder="Search by job ID or experiment..."
+            aria-label="Search by job ID or experiment"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-surface dark:bg-dark-surface text-light-text dark:text-dark-text"
+            className="w-full pl-10 pr-4 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-surface dark:bg-dark-surface text-light-text dark:text-dark-text placeholder:text-light-text/40 dark:placeholder:text-dark-subtext focus:outline-none focus:ring-2 focus:ring-vt-maroon/50"
           />
         </div>
       </motion.div>
+
+      {/* Screen-reader summary of queue state, refreshed by polling */}
+      <div role="status" aria-live="polite" className="sr-only">
+        {jobSummary}
+      </div>
 
       {/* Table */}
       <motion.div
@@ -272,8 +327,10 @@ export default function JobQueuePage() {
                   <td className="px-6 py-4">{getStatusBadge(job)}</td>
 
                   <td className="px-6 py-4 whitespace-nowrap flex gap-2">
-                    {/* Logs button (only when running) */}
-                    {job.running && (
+                    {/* Logs button — available for any job that has started
+                        (running, finished, failed, canceled). Queued jobs
+                        haven't produced logs yet so we hide it there. */}
+                    {job.status !== 'queued' && (
                         <Button
                         variant="ghost"
                         size="sm"
@@ -307,6 +364,20 @@ export default function JobQueuePage() {
                         )}
                         </Button>
                     )}
+
+                    {/* Delete-from-history button (terminal statuses only —
+                        queued/running jobs must be canceled first) */}
+                    {isTerminalJob(job) && (
+                        <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 px-2 text-red-500 hover:text-red-600"
+                        onClick={() => setJobPendingDelete(job)}
+                        aria-label={`Delete job for ${job.experiment_name} from history`}
+                        >
+                        <Trash2 className="h-4 w-4" aria-hidden="true" />
+                        </Button>
+                    )}
                   </td>
 
                 </motion.tr>
@@ -315,33 +386,63 @@ export default function JobQueuePage() {
           </table>
         </div>
 
-        {!loadingQueue && filteredJobs.length === 0 && (
-          <div role="status" aria-live="polite" className="text-center py-12 text-light-text/60 dark:text-dark-subtext">
-            No jobs found
-          </div>
+        {!loadingQueue && loadError && (
+          <ErrorState
+            title="Failed to load job queue"
+            message={loadError}
+            onRetry={() => void fetchJobs(true)}
+          />
+        )}
+
+        {!loadingQueue && !loadError && filteredJobs.length === 0 && (
+          jobs.length === 0 ? (
+            <EmptyState
+              icon={ListChecks}
+              title="No jobs yet"
+              description="Jobs appear here when you run a simulation phase or generate a visualization."
+            />
+          ) : (
+            <EmptyState
+              icon={Search}
+              title="No jobs match your search"
+              description="Try a different job ID or experiment name."
+              action={
+                <Button variant="secondary" onClick={() => setSearchQuery('')}>
+                  Clear search
+                </Button>
+              }
+            />
+          )
         )}
       </motion.div>
 
+      {/* Delete-from-history confirmation */}
+      <ConfirmDialog
+        isOpen={jobPendingDelete !== null}
+        title="Delete job from history"
+        message={`Permanently remove this ${jobPendingDelete?.status ?? ''} job for "${jobPendingDelete?.experiment_name ?? ''}" from the job list? This cannot be undone.`}
+        confirmLabel="Delete"
+        confirmLoadingLabel="Deleting…"
+        cancelLabel="Cancel"
+        variant="danger"
+        isConfirming={deletingJob}
+        onConfirm={deleteJob}
+        onCancel={() => setJobPendingDelete(null)}
+      />
+
       {/* Logs Modal */}
-      {selectedJob && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-light-surface dark:bg-dark-surface rounded-card border border-light-border dark:border-dark-border max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between p-6 border-b border-light-border dark:border-dark-border">
-              <h2 className="text-xl font-semibold text-light-text dark:text-dark-text">
-                Job Logs:
-              </h2>
-              <Button variant="ghost" size="sm" onClick={() => setSelectedJob(null)} aria-label="Close logs">
-                <XCircle className="h-5 w-5" aria-hidden="true" />
-              </Button>
-            </div>
-            <div className="p-6 overflow-y-auto flex-1">
-              <pre className="text-xs font-mono text-light-text/80 dark:text-dark-subtext whitespace-pre-wrap">
-                {logs}
-              </pre>
-            </div>
-          </div>
-        </div>
-      )}
+      <Dialog open={selectedJob !== null} onClose={() => setSelectedJob(null)} className="max-w-2xl max-h-[80vh] flex flex-col">
+        <DialogHeader className="border-b border-light-border dark:border-dark-border">
+          <DialogTitle>
+            Job Logs{selectedJob ? `: ${selectedJob.experiment_name}` : ''}
+          </DialogTitle>
+        </DialogHeader>
+        <DialogBody className="overflow-y-auto flex-1 pt-4">
+          <pre className="text-xs font-mono text-light-text/80 dark:text-dark-subtext whitespace-pre-wrap">
+            {logs}
+          </pre>
+        </DialogBody>
+      </Dialog>
     </div>
   )
 }

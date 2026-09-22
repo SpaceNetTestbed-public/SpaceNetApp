@@ -32,7 +32,7 @@ export default function HomePage() {
         {/* Hero content */}
         <div className="relative z-10 max-w-2xl mx-auto text-center flex flex-col items-center gap-8">
           {/* Logo */}
-          <div className="h-20 w-20 rounded-2xl bg-maroon flex items-center justify-center mb-4">
+          <div className="h-20 w-20 rounded-2xl bg-vt-maroon flex items-center justify-center mb-4">
             <Satellite className="h-10 w-10 text-white" />
           </div>
 
@@ -54,7 +54,7 @@ export default function HomePage() {
           {/* Primary CTAs */}
           <div className="flex flex-col sm:flex-row gap-4 mt-4">
             <Link href="/experiments" className="transition-transform duration-300 ease-out hover:-translate-y-1">
-              <Button className="bg-maroon hover:bg-maroon-hover text-white text-lg px-8 py-6 rounded-2xl flex items-center gap-2 transition-all duration-300">
+              <Button variant="primary" className="text-lg px-8 py-6 rounded-2xl flex items-center gap-2 transition-all duration-300">
                 Open App <ArrowRight className="h-5 w-5" />
               </Button>
             </Link>
@@ -78,7 +78,7 @@ export default function HomePage() {
         </div>
 
         {/* Scroll indicator */}
-        <a href="#about" className="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-scroll-bounce">
+        <a href="#about" aria-label="Scroll to About section" className="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-scroll-bounce">
           <div className="w-6 h-10 border-2 border-black/30 dark:border-white/30 rounded-full flex items-start justify-center p-2">
             <div className="w-1.5 h-1.5 bg-black/50 dark:bg-white/50 rounded-full"></div>
           </div>
@@ -97,7 +97,7 @@ export default function HomePage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12">
             {/* Card 1 */}
             <div className="rounded-2xl bg-white/80 dark:bg-slate-900/60 border border-black/10 dark:border-white/5 p-6 flex flex-col gap-4 transition-transform duration-300 ease-out hover:-translate-y-2 cursor-pointer">
-              <div className="h-12 w-12 rounded-xl bg-maroon/90 dark:bg-maroon/80 flex items-center justify-center">
+              <div className="h-12 w-12 rounded-xl bg-vt-maroon/90 dark:bg-vt-maroon/80 flex items-center justify-center">
                 <Satellite className="h-6 w-6 text-white" />
               </div>
               <h3 className="text-xl font-semibold text-black dark:text-white">Constellation Simulation</h3>
@@ -108,7 +108,7 @@ export default function HomePage() {
 
             {/* Card 2 */}
             <div className="rounded-2xl bg-white/80 dark:bg-slate-900/60 border border-black/10 dark:border-white/5 p-6 flex flex-col gap-4 transition-transform duration-300 ease-out hover:-translate-y-2 cursor-pointer">
-              <div className="h-12 w-12 rounded-xl bg-orange-500/90 dark:bg-orange-500/80 flex items-center justify-center">
+              <div className="h-12 w-12 rounded-xl bg-vt-orange/90 dark:bg-vt-orange/80 flex items-center justify-center">
                 <BarChart3 className="h-6 w-6 text-white" />
               </div>
               <h3 className="text-xl font-semibold text-black dark:text-white">Network Performance Analysis</h3>
@@ -119,7 +119,7 @@ export default function HomePage() {
 
             {/* Card 3 */}
             <div className="rounded-2xl bg-white/80 dark:bg-slate-900/60 border border-black/10 dark:border-white/5 p-6 flex flex-col gap-4 transition-transform duration-300 ease-out hover:-translate-y-2 cursor-pointer">
-              <div className="h-12 w-12 rounded-xl bg-maroon/90 dark:bg-maroon/80 flex items-center justify-center">
+              <div className="h-12 w-12 rounded-xl bg-vt-maroon/90 dark:bg-vt-maroon/80 flex items-center justify-center">
                 <Network className="h-6 w-6 text-white" />
               </div>
               <h3 className="text-xl font-semibold text-black dark:text-white">Results Visualization</h3>
@@ -143,10 +143,10 @@ export default function HomePage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12 relative">
             {/* Step 1 */}
             <div className="rounded-2xl bg-white/80 dark:bg-slate-900/60 border border-black/10 dark:border-white/5 p-6 flex flex-col gap-4 relative transition-transform duration-300 ease-out hover:-translate-y-2 cursor-pointer">
-              <div className="absolute top-4 right-4 h-8 w-8 rounded-full bg-orange-500 flex items-center justify-center text-white text-sm font-bold">
+              <div className="absolute top-4 right-4 h-8 w-8 rounded-full bg-vt-orange flex items-center justify-center text-white text-sm font-bold">
                 1
               </div>
-              <div className="h-12 w-12 rounded-xl bg-maroon/90 dark:bg-maroon/80 flex items-center justify-center">
+              <div className="h-12 w-12 rounded-xl bg-vt-maroon/90 dark:bg-vt-maroon/80 flex items-center justify-center">
                 <Settings className="h-6 w-6 text-white" />
               </div>
               <h3 className="text-xl font-semibold text-black dark:text-white">Create</h3>
@@ -157,10 +157,10 @@ export default function HomePage() {
 
             {/* Step 2 */}
             <div className="rounded-2xl bg-white/80 dark:bg-slate-900/60 border border-black/10 dark:border-white/5 p-6 flex flex-col gap-4 relative transition-transform duration-300 ease-out hover:-translate-y-2 cursor-pointer">
-              <div className="absolute top-4 right-4 h-8 w-8 rounded-full bg-orange-500 flex items-center justify-center text-white text-sm font-bold">
+              <div className="absolute top-4 right-4 h-8 w-8 rounded-full bg-vt-orange flex items-center justify-center text-white text-sm font-bold">
                 2
               </div>
-              <div className="h-12 w-12 rounded-xl bg-maroon/90 dark:bg-maroon/80 flex items-center justify-center">
+              <div className="h-12 w-12 rounded-xl bg-vt-maroon/90 dark:bg-vt-maroon/80 flex items-center justify-center">
                 <Globe className="h-6 w-6 text-white" />
               </div>
               <h3 className="text-xl font-semibold text-black dark:text-white">Configure & Run</h3>
@@ -171,10 +171,10 @@ export default function HomePage() {
 
             {/* Step 3 */}
             <div className="rounded-2xl bg-white/80 dark:bg-slate-900/60 border border-black/10 dark:border-white/5 p-6 flex flex-col gap-4 relative transition-transform duration-300 ease-out hover:-translate-y-2 cursor-pointer">
-              <div className="absolute top-4 right-4 h-8 w-8 rounded-full bg-orange-500 flex items-center justify-center text-white text-sm font-bold">
+              <div className="absolute top-4 right-4 h-8 w-8 rounded-full bg-vt-orange flex items-center justify-center text-white text-sm font-bold">
                 3
               </div>
-              <div className="h-12 w-12 rounded-xl bg-maroon/90 dark:bg-maroon/80 flex items-center justify-center">
+              <div className="h-12 w-12 rounded-xl bg-vt-maroon/90 dark:bg-vt-maroon/80 flex items-center justify-center">
                 <Download className="h-6 w-6 text-white" />
               </div>
               <h3 className="text-xl font-semibold text-black dark:text-white">Visualize & Export</h3>
@@ -198,7 +198,7 @@ export default function HomePage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-12">
             {/* Card 1 */}
             <div className="rounded-2xl bg-white/80 dark:bg-slate-900/60 border border-black/10 dark:border-white/5 p-6 flex flex-col gap-4 transition-transform duration-300 ease-out hover:-translate-y-2 cursor-pointer">
-              <div className="h-12 w-12 rounded-xl bg-maroon/90 dark:bg-maroon/80 flex items-center justify-center">
+              <div className="h-12 w-12 rounded-xl bg-vt-maroon/90 dark:bg-vt-maroon/80 flex items-center justify-center">
                 <Settings className="h-6 w-6 text-white" />
               </div>
               <h3 className="text-xl font-semibold text-black dark:text-white">Extensible Architecture</h3>
@@ -209,7 +209,7 @@ export default function HomePage() {
 
             {/* Card 2 */}
             <div className="rounded-2xl bg-white/80 dark:bg-slate-900/60 border border-black/10 dark:border-white/5 p-6 flex flex-col gap-4 transition-transform duration-300 ease-out hover:-translate-y-2 cursor-pointer">
-              <div className="h-12 w-12 rounded-xl bg-maroon/90 dark:bg-maroon/80 flex items-center justify-center">
+              <div className="h-12 w-12 rounded-xl bg-vt-maroon/90 dark:bg-vt-maroon/80 flex items-center justify-center">
                 <Globe className="h-6 w-6 text-white" />
               </div>
               <h3 className="text-xl font-semibold text-black dark:text-white">Open Access Testing</h3>
@@ -220,7 +220,7 @@ export default function HomePage() {
 
             {/* Card 3 */}
             <div className="rounded-2xl bg-white/80 dark:bg-slate-900/60 border border-black/10 dark:border-white/5 p-6 flex flex-col gap-4 transition-transform duration-300 ease-out hover:-translate-y-2 cursor-pointer">
-              <div className="h-12 w-12 rounded-xl bg-maroon/90 dark:bg-maroon/80 flex items-center justify-center">
+              <div className="h-12 w-12 rounded-xl bg-vt-maroon/90 dark:bg-vt-maroon/80 flex items-center justify-center">
                 <Database className="h-6 w-6 text-white" />
               </div>
               <h3 className="text-xl font-semibold text-black dark:text-white">Real-World Data</h3>
@@ -231,7 +231,7 @@ export default function HomePage() {
 
             {/* Card 4 */}
             <div className="rounded-2xl bg-white/80 dark:bg-slate-900/60 border border-black/10 dark:border-white/5 p-6 flex flex-col gap-4 transition-transform duration-300 ease-out hover:-translate-y-2 cursor-pointer">
-              <div className="h-12 w-12 rounded-xl bg-maroon/90 dark:bg-maroon/80 flex items-center justify-center">
+              <div className="h-12 w-12 rounded-xl bg-vt-maroon/90 dark:bg-vt-maroon/80 flex items-center justify-center">
                 <Gauge className="h-6 w-6 text-white" />
               </div>
               <h3 className="text-xl font-semibold text-black dark:text-white">Comprehensive Metrics</h3>
@@ -257,7 +257,7 @@ export default function HomePage() {
             </div>
             <div className="flex items-center gap-4">
               <a
-                href="https://github.com"
+                href="https://github.com/SpaceNetTestbed-public"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="h-10 w-10 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center transition-colors"
@@ -278,7 +278,7 @@ export default function HomePage() {
                   <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
                 </svg>
               </a>
-              <div className="h-10 w-10 rounded-full bg-maroon flex items-center justify-center text-white font-bold text-sm">
+              <div className="h-10 w-10 rounded-full bg-vt-maroon flex items-center justify-center text-white font-bold text-sm">
                 VT
               </div>
             </div>

@@ -1,31 +1,26 @@
 operator_name: starlink
 Sim_Length:
   TimeStepDuration: 10
-  TimeStepCount: 12
+  TimeStepCount: 3
+# NOTE: keep this date away from the timestamps of the real TLE files bundled
+# in dynamic-topology-generator/utils/starlink_tles/ — the TLE generator
+# appends to starlink_<sim_ts>, and a colliding date mixes generated TLEs
+# into a real file, crashing Phase 1 with a satellite-count mismatch.
 Sim_Date_Time:
-  StartYear: 2024
-  StartMonth: 9
-  StartDay: 27
-  StartHour: 22
-  StartMinute: 15
-  StartSecond: 6
-generate_TLE: false
+  StartYear: 2025
+  StartMonth: 1
+  StartDay: 1
+  StartHour: 0
+  StartMinute: 0
+  StartSecond: 0
+generate_TLE: true
 shells:
   shell1:
     name: shell1
-    orbits: 72
-    sat_per_orbit: 22
+    orbits: 20
+    sat_per_orbit: 15
     altitude: 540
     inclination: 53.2
-    pattern: walker_delta
-    ipp_increment: 1
-    body: Earth
-  shell2:
-    name: shell2
-    orbits: 5
-    sat_per_orbit: 46
-    altitude: 560
-    inclination: 97.6
     pattern: walker_delta
     ipp_increment: 1
     body: Earth

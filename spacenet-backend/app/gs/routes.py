@@ -195,7 +195,7 @@ def replace_ground_station_file(gs_id):
       400:
         description: Invalid input data
     """
-    stations = request.get_json()
+    payload = request.get_json()
 
     gs_file = GroundStationFile.query.filter_by(
         id=gs_id
@@ -204,8 +204,25 @@ def replace_ground_station_file(gs_id):
     if not gs_file:
         return jsonify({"error": "Station file doesn't exist"}), 404
 
+    # Accept either the old shape (a bare array) or the new shape
+    # ({"name": ..., "stations": [...]}) so existing callers don't break.
+    if isinstance(payload, list):
+        stations = payload
+        new_name = None
+    elif isinstance(payload, dict):
+        stations = payload.get("stations")
+        new_name = payload.get("name")
+    else:
+        return jsonify({"error": "Expected a JSON array or object with 'stations'"}), 400
+
     if not isinstance(stations, list):
         return jsonify({"error": "Expected a JSON array of ground stations"}), 400
+
+    if new_name is not None:
+        stripped = new_name.strip()
+        if not stripped:
+            return jsonify({"error": "Station set name cannot be empty"}), 400
+        gs_file.name = stripped
 
     filepath = f"local_workspace/gs/{gs_id}.txt"
 
@@ -247,6 +264,7 @@ def replace_ground_station_file(gs_id):
     with open(filepath, "w", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")
 
+    db.session.commit()
     return jsonify({"message": "Ground station file replaced"}), 200
 
 @bp.delete("/ground_station_file/<int:gs_id>")

@@ -132,7 +132,7 @@ def update_sat(experiment_id):
           return jsonify({"error": "TLE file not found"}), 404
 
       dest_folder = f"local_workspace/{experiment.id}/"
-      dest_file = dest_folder + f"{data['operator_name']}_tles/{str(int(dt.timestamp()))}.txt"
+      dest_file = dest_folder + f"{data['operator_name']}_tles/starlink_{str(int(dt.timestamp()))}"
 
       if os.path.exists(dest_folder + f"{data['operator_name']}_tles/"):
         shutil.rmtree(dest_folder + f"{data['operator_name']}_tles/")
@@ -472,8 +472,8 @@ def create_main_mn(experiment_id):
         shell_total = shell["orbits"] * shell["sat_per_orbit"]
         total_sats += shell_total
 
-    # data['SourceDeviceName'] += total_sats
-    # data['DestDeviceName'] += total_sats
+    data['SourceDeviceName'] += total_sats
+    data['DestDeviceName'] += total_sats
 
     try:
         create_main_mn_config_wrapper(experiment_id, data)

@@ -6,6 +6,8 @@ export default {
     extend: {
       colors: {
         maroon: { DEFAULT:'#861F41', hover:'#9A2A52', pressed:'#6E1733' },
+        'vt-maroon': { DEFAULT:'#861F41', hover:'#9A2A52', pressed:'#6E1733' },
+        'vt-orange': { DEFAULT:'#E87722', hover:'#C95E1C', pressed:'#B0511A' },
         accent: { DEFAULT:'#F0A500' },
         light: { bg:'#F7F7F8', surface:'#FFFFFF', text:'#16181C', border:'#E6E6EA' },
         dark: { bg:'#0E0F12', surface:'#1A1C20', text:'#EAECEF', subtext:'#A9AFB8', border:'#2A2D33' }

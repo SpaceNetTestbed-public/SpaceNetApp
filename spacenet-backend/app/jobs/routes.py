@@ -5,6 +5,13 @@ from rq.job import Job
 from rq.exceptions import NoSuchJobError
 from rq.command import send_kill_horse_command
 from rq.worker import Worker, WorkerStatus
+from rq.registry import FinishedJobRegistry, FailedJobRegistry
+try:
+    # CanceledJobRegistry was added in RQ 1.10. Import defensively so the
+    # backend still boots on older RQ versions used in some dev envs.
+    from rq.registry import CanceledJobRegistry
+except ImportError:
+    CanceledJobRegistry = None
 from app.jobs.services import process_config, process_config_phase_2, process_config_gif_maker  # top-level function RQ worker will import
 import time
 from matplotlib.colors import is_color_like
@@ -13,6 +20,15 @@ import os
 import shutil
 
 from app.models.experiment import Experiment
+
+# Cap how many terminal (finished / failed / canceled) jobs we return per
+# registry so /jobs stays snappy even after a researcher has kicked off
+# hundreds of runs. Frontend sorts what it gets — most recent surfaces last.
+TERMINAL_JOB_LIMIT = 50
+
+# Statuses eligible for history deletion. 'stopped' is what RQ assigns after
+# a kill-horse cancel of a running job, and it lands in FailedJobRegistry.
+TERMINAL_JOB_STATUSES = {"finished", "failed", "canceled", "stopped"}
 
 # way to queue a task
 # way to access whats in your queue (including the one that is running)
@@ -258,6 +274,9 @@ def create_gif(experiment_id):
     job.meta["experiment_id"] = experiment_id
     job.meta["experiment_name"] = experiment.name
     job.meta["phase"] = 'gif'
+    # Distinguishes the globe render ("output") from the animated GIF
+    # ("output-gif") so the frontend can dedupe/cancel the right job.
+    job.meta["gif_name"] = data["gif_name"]
     job.save_meta()
 
     return jsonify({
@@ -271,7 +290,7 @@ from app.extensions import redis_client
 @bp.get("/jobs")
 def list_jobs():
     """
-    List jobs (enqueued + currently running)
+    List jobs (queued, running, and recently finished / failed / canceled)
     ---
     tags:
       - Jobs
@@ -279,47 +298,82 @@ def list_jobs():
       200:
         description: list of all jobs
     """
-    q = rq.get_queue('default')
+    # Globe/plot renders run on the separate 'plot' queue — include it so the
+    # frontend can see, dedupe against, and cancel visualization jobs too.
+    queue_names = ('default', 'plot')
     redis_conn = redis_client.client
 
     job_list = []
     job_count = 0
+    # Dedupe so a job present in both a worker and a registry (rare edge case
+    # during status transitions) doesn't get reported twice.
+    seen_job_ids = set()
 
-    # --- Enqueued jobs ---
-    for job in q.jobs:
-        job_count += 1
+    def _append(job, position=0, running=False):
+        if job is None or job.id in seen_job_ids:
+            return
+        seen_job_ids.add(job.id)
         job_list.append({
             "job_id": job.id,
+            "experiment_id": job.meta.get("experiment_id"),
             "experiment_name": job.meta.get("experiment_name"),
             "status": job.get_status(),
             "args": job.args,
             "phase": job.meta.get("phase"),
-            "position": job_count,
+            "gif_name": job.meta.get("gif_name"),
+            "position": position,
             "created_at": job.enqueued_at.isoformat() if job.enqueued_at else None,
-            "running": False  # currently in queue
+            "running": running,
         })
 
+    # --- Enqueued jobs (per queue) ---
+    for queue_name in queue_names:
+        q = rq.get_queue(queue_name)
+        for job in q.jobs:
+            job_count += 1
+            _append(job, position=job_count, running=False)
+
     # --- Currently running jobs ---
+    # fetch_job resolves by job id via the shared Redis connection, so a
+    # single queue handle works for jobs from any queue.
+    fetch_q = rq.get_queue('default')
     workers = Worker.all(connection=redis_conn)
     for w in workers:
         current_job_id = w.get_current_job_id()
         if current_job_id:
             try:
-                job = q.fetch_job(current_job_id)
-                
-                if job: 
-                    job_list.append({
-                        "job_id": job.id,
-                        "experiment_name": job.meta.get("experiment_name"),
-                        "status": job.get_status(),
-                        "args": job.args,
-                        "phase": job.meta.get("phase"),
-                        "position": 0,
-                        "created_at": job.enqueued_at.isoformat() if job.enqueued_at else None,
-                        "running": True,  # currently running
-                    })
+                job = fetch_q.fetch_job(current_job_id)
+                _append(job, position=0, running=True)
             except Exception:
                 continue
+
+    # --- Terminal jobs (finished / failed / canceled, per queue) ---
+    # Without these, the frontend polls a running phase, then when the job
+    # transitions to finished/failed the /jobs response no longer contains
+    # it — the simulate page silently stops updating and the Jobs page
+    # shows no history.
+    for queue_name in queue_names:
+        q = rq.get_queue(queue_name)
+        registries = [
+            FinishedJobRegistry(queue=q),
+            FailedJobRegistry(queue=q),
+        ]
+        if CanceledJobRegistry is not None:
+            registries.append(CanceledJobRegistry(queue=q))
+
+        for registry in registries:
+            try:
+                # Registries are Redis sorted sets keyed by timestamp — take
+                # the tail so we return the most recent N.
+                job_ids = registry.get_job_ids()[-TERMINAL_JOB_LIMIT:]
+            except Exception:
+                continue
+            for jid in job_ids:
+                try:
+                    job = q.fetch_job(jid)
+                    _append(job, position=0, running=False)
+                except Exception:
+                    continue
 
     return jsonify(job_list), 200
 
@@ -351,6 +405,55 @@ def get_job_logs(job_id):
         return jsonify({"job_id": job.id, "logs": logs}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 404
+
+@bp.delete("/jobs/<job_id>")
+def delete_job(job_id: str):
+    """
+    Delete a terminal (finished / failed / canceled) job from history
+    ---
+    tags:
+      - Jobs
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: job_id
+        type: string
+        required: true
+    responses:
+      200:
+        description: Job deleted from history
+      404:
+        description: Job not found
+      409:
+        description: Job is still queued or running — cancel it first
+    """
+    conn = redis_client.client
+    try:
+        job = Job.fetch(job_id, connection=conn)
+    except NoSuchJobError:
+        return jsonify({"error": "Job not found"}), 404
+
+    status = job.get_status()
+    if status not in TERMINAL_JOB_STATUSES:
+        return jsonify({
+            "error": f"Job is '{status}' — only finished, failed, or canceled "
+                     "jobs can be deleted. Cancel it first via "
+                     "DELETE /jobs/<job_id>/cancel."
+        }), 409
+
+    try:
+        # RQ's Job.delete() removes the job hash from Redis and pulls the id
+        # out of whichever registry currently holds it (Finished / Failed /
+        # Canceled), so the /jobs listing stops reporting it — no explicit
+        # registry.remove() needed.
+        job.delete()
+    except Exception as e:
+        current_app.logger.error(f"Error deleting job {job_id}: {e}")
+        return jsonify({"error": str(e)}), 500
+
+    return jsonify({"status": "deleted", "job_id": job_id}), 200
+
 
 @bp.delete("/jobs/<job_id>/cancel")
 def cancel_job(job_id):

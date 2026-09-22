@@ -76,7 +76,25 @@ def get_experiment(experiment_id):
     if experiment is None:
         return jsonify({"error": "Experiment not found"}), 404
 
-    return jsonify({"id": experiment.id, "name": experiment.name, "tags": experiment.tags, "description": experiment.description}), 200
+    # Phase checks — mirrors the same os.path.exists checks in the list
+    # endpoint (get_experiments) above. Without these, callers that fetch a
+    # single experiment (e.g. the edit page) can't tell whether Phase 1/2
+    # output already exists, so guards like "confirm before overriding
+    # existing output" silently never trigger.
+    base_path = f"local_workspace/{experiment.id}"
+    has_experiment = os.path.exists(f"{base_path}")
+    has_phase_1 = os.path.exists(f"{base_path}/output.zip")
+    has_phase_2 = os.path.exists(f"{base_path}/output_mn.zip")
+
+    return jsonify({
+        "id": experiment.id,
+        "name": experiment.name,
+        "tags": experiment.tags,
+        "description": experiment.description,
+        "hasExperiment": has_experiment,
+        "hasPhase1": has_phase_1,
+        "hasPhase2": has_phase_2,
+    }), 200
 
 import os
 import json

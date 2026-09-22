@@ -1,5 +1,5 @@
 import os
-from app.configurations.create_config import create_default_configs, readd_file_paths, resolve_ground_station_file
+from app.configurations.create_config import create_default_configs, readd_file_paths, resolve_ground_station_file, normalize_shell_keys
 import shutil
 
 def ensure_experiment_folder_and_defaults(experiment_id: int):
@@ -75,6 +75,9 @@ def add_main_mn_default(main_mn_config, experiment_id):
     return main_mn_config
 
 def add_sat_config_default(sat_config):
+    # Custom-experiment configs bypass create_sat_config, so re-key any
+    # numeric shell names ("0", "1", …) to shellN here as well.
+    sat_config = normalize_shell_keys(sat_config)
     sat_config['TLEFilePath'] = 'dynamic-topology-generator/utils/'
     return sat_config
 

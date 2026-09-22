@@ -2,7 +2,7 @@
 
 import { SatConfig, ShellConfig } from '@/types/experiment-config'
 import { ShellEditor } from './ShellEditor'
-import { Plus } from 'lucide-react'
+import { AlertTriangle, Plus } from 'lucide-react'
 import { Button } from '../ui/button'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
@@ -21,9 +21,12 @@ interface SatConfigFormProps {
   config: SatConfig
   onChange: (config: SatConfig) => void
   tleLocked?: boolean
+  // True when landing from a fresh create (?new=true) — lets untouched
+  // default fields render as placeholders instead of pre-filled values.
+  isNew?: boolean
 }
 
-export function SatConfigForm({ config, onChange, tleLocked = false }: SatConfigFormProps) {
+export function SatConfigForm({ config, onChange, tleLocked = false, isNew = false }: SatConfigFormProps) {
   const [tleFiles, setTLEFiles] = useState<TLEFile[]>([]);
   const updateField = <K extends keyof SatConfig>(field: K, value: SatConfig[K]) => {
     onChange({ ...config, [field]: value })
@@ -70,8 +73,8 @@ export function SatConfigForm({ config, onChange, tleLocked = false }: SatConfig
   const addShell = () => {
     const newShell: ShellConfig = {
       name: `shell${shellsArray.length + 1}`,
-      orbits: 72,
-      sat_per_orbit: 22,
+      orbits: 20,
+      sat_per_orbit: 15,
       altitude: 550,
       inclination: 53,
       pattern: 'walker_delta',
@@ -121,7 +124,7 @@ export function SatConfigForm({ config, onChange, tleLocked = false }: SatConfig
           <select
             value={config.operator_name}
             onChange={(e) => updateField('operator_name', e.target.value as SatConfig['operator_name'])}
-            className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
+            className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-vt-maroon/50"
           >
             <option value="starlink">Starlink</option>
             <option value="lunar">Lunar (beta testing)</option>
@@ -147,7 +150,7 @@ export function SatConfigForm({ config, onChange, tleLocked = false }: SatConfig
               onChange={(e) =>
                 updateSimLength('TimeStepDuration', parseInt(e.target.value) || SIM_TIME_STEP_DURATION_MIN)
               }
-              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
+              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-vt-maroon/50"
               aria-describedby="sim-duration-hint"
             />
           </div>
@@ -163,7 +166,7 @@ export function SatConfigForm({ config, onChange, tleLocked = false }: SatConfig
               onChange={(e) =>
                 updateSimLength('TimeStepCount', parseInt(e.target.value) || SIM_TIME_STEP_COUNT_MIN)
               }
-              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
+              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-vt-maroon/50"
               aria-describedby="sim-duration-hint"
             />
           </div>
@@ -186,16 +189,26 @@ export function SatConfigForm({ config, onChange, tleLocked = false }: SatConfig
             </label>
             <input
               type="date"
-              value={`${config.Sim_Date_Time.StartYear}-${String(config.Sim_Date_Time.StartMonth).padStart(2, '0')}-${String(config.Sim_Date_Time.StartDay).padStart(2, '0')}`}
+              value={`${String(config.Sim_Date_Time.StartYear).padStart(4, '0')}-${String(config.Sim_Date_Time.StartMonth).padStart(2, '0')}-${String(config.Sim_Date_Time.StartDay).padStart(2, '0')}`}
               onChange={(e) => {
-                const date = new Date(e.target.value)
-                if (!isNaN(date.getTime())) {
-                  updateSimDateTime('StartYear', date.getFullYear())
-                  updateSimDateTime('StartMonth', date.getMonth() + 1)
-                  updateSimDateTime('StartDay', date.getDate())
+                // Parse the YYYY-MM-DD string directly (new Date() would parse it
+                // as UTC and shift the day in negative-offset timezones) and commit
+                // year/month/day in ONE update — three sequential updateSimDateTime
+                // calls each spread the stale config, so only the last field stuck.
+                const [year, month, day] = e.target.value.split('-').map(Number)
+                if (year && month && day) {
+                  onChange({
+                    ...config,
+                    Sim_Date_Time: {
+                      ...config.Sim_Date_Time,
+                      StartYear: year,
+                      StartMonth: month,
+                      StartDay: day,
+                    },
+                  })
                 }
               }}
-              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
+              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-vt-maroon/50"
             />
           </div>
           <div>
@@ -214,7 +227,7 @@ export function SatConfigForm({ config, onChange, tleLocked = false }: SatConfig
                 }
                 className="flex-1 px-3 py-2 rounded-btn border border-light-border dark:border-dark-border
                           bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text
-                          focus:outline-none focus:ring-2 focus:ring-maroon/50"
+                          focus:outline-none focus:ring-2 focus:ring-vt-maroon/50"
               />
 
               {/* Minutes (0–59) */}
@@ -228,7 +241,7 @@ export function SatConfigForm({ config, onChange, tleLocked = false }: SatConfig
                 }
                 className="flex-1 px-3 py-2 rounded-btn border border-light-border dark:border-dark-border
                           bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text
-                          focus:outline-none focus:ring-2 focus:ring-maroon/50"
+                          focus:outline-none focus:ring-2 focus:ring-vt-maroon/50"
               />
 
               {/* Seconds (0–59) */}
@@ -242,7 +255,7 @@ export function SatConfigForm({ config, onChange, tleLocked = false }: SatConfig
                 }
                 className="flex-1 px-3 py-2 rounded-btn border border-light-border dark:border-dark-border
                           bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text
-                          focus:outline-none focus:ring-2 focus:ring-maroon/50"
+                          focus:outline-none focus:ring-2 focus:ring-vt-maroon/50"
               />
             </div>
 
@@ -256,6 +269,31 @@ export function SatConfigForm({ config, onChange, tleLocked = false }: SatConfig
           TLE File Options
         </h3>
         <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <label className="block text-sm font-medium text-light-text dark:text-dark-text mb-1.5">
+                Generate Custom TLEs
+              </label>
+              <p className="text-xs text-light-text/60 dark:text-dark-subtext">
+                {config.tle_id !== -1
+                  ? 'Unavailable while a custom TLE file is selected — Phase 1 uses the uploaded file.'
+                  : tleLocked
+                    ? 'Locked because this experiment has already been run.'
+                    : 'Generate synthetic TLEs from the shell configuration below instead of loading a TLE file.'}
+              </p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={config.generate_TLE === true}
+                disabled={tleLocked || config.tle_id !== -1}
+                onChange={(e) => updateField('generate_TLE', e.target.checked)}
+                className="sr-only peer"
+                aria-label="Generate custom TLEs"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-vt-maroon/20 dark:peer-focus:ring-vt-maroon/30 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-vt-maroon peer-disabled:opacity-50 peer-disabled:cursor-not-allowed"></div>
+            </label>
+          </div>
           <div>
             <label className="block text-sm font-medium text-light-text dark:text-dark-text mb-1.5">
               TLE File
@@ -263,8 +301,18 @@ export function SatConfigForm({ config, onChange, tleLocked = false }: SatConfig
 
             <select
               value={config.tle_id}
-              onChange={(e) => {updateField("tle_id", parseInt(e.target.value) || 0)}}
-              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50 text-sm"
+              onChange={(e) => {
+                const val = parseInt(e.target.value) || 0
+                // A selected custom TLE file and TLE generation are mutually
+                // exclusive Phase 1 inputs — force generation off with the
+                // file selection in a single update.
+                onChange({
+                  ...config,
+                  tle_id: val,
+                  ...(val !== -1 ? { generate_TLE: false } : {}),
+                })
+              }}
+              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-vt-maroon/50 text-sm"
             >
               <option value={-1}>No Uploaded TLE</option>
               {tleFiles.map((file) => (
@@ -274,6 +322,22 @@ export function SatConfigForm({ config, onChange, tleLocked = false }: SatConfig
               ))}
             </select>
           </div>
+          {config.generate_TLE === false && config.tle_id === -1 && (
+            <p className="text-[11px] text-amber-600 dark:text-amber-400 flex items-start gap-1 font-medium" role="status">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" aria-hidden="true" />
+              You must either enable TLE generation or select a specific TLE file —
+              Phase 1 cannot run with neither.
+            </p>
+          )}
+          {config.generate_TLE === false && config.tle_id !== -1 && (
+            <p className="text-[11px] text-amber-600 dark:text-amber-400 flex items-start gap-1 font-medium" role="status">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" aria-hidden="true" />
+              TLE generation is disabled for this experiment — Phase 1 will load a real
+              TLE file instead of generating orbits from the shells below. If the TLE
+              file&apos;s satellite count doesn&apos;t match the shell configuration, the run
+              will fail.
+            </p>
+          )}
         </div>
       </div>
 
@@ -296,11 +360,15 @@ export function SatConfigForm({ config, onChange, tleLocked = false }: SatConfig
               onChange={updateShell}
               onRemove={removeShell}
               canRemove={index != 0}
+              // Placeholder behavior is only for the initial shell1 on a
+              // brand-new form; shells added via "Add Shell" show their
+              // real default values pre-filled.
+              isNew={isNew && index === 0}
             />
           ))}
           <Button
             type="button"
-            variant="outline"
+            variant="secondary"
             onClick={addShell}
             className="w-full border-dashed"
           >

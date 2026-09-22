@@ -27,7 +27,7 @@ export function TopNav() {
 
             {/* Left: Logo */}
             <Link href="/experiments" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-              <div className="h-10 w-10 rounded-xl bg-maroon flex items-center justify-center">
+              <div className="h-10 w-10 rounded-xl bg-vt-maroon flex items-center justify-center">
                 <Satellite className="h-5 w-5 text-white" />
               </div>
               <span className="text-lg font-semibold text-light-text dark:text-dark-text">
@@ -48,7 +48,7 @@ export function TopNav() {
                       variant="ghost"
                       className={`flex items-center gap-2 ${
                         isActive
-                          ? 'text-maroon dark:text-maroon font-medium'
+                          ? 'text-vt-maroon dark:text-vt-maroon font-medium'
                           : 'text-light-text/70 dark:text-dark-subtext hover:text-light-text dark:hover:text-dark-text'
                       }`}
                     >

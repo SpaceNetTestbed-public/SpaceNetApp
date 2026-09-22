@@ -101,13 +101,21 @@ export const defaultSatConfig: SatConfig = {
     StartMinute: 0,
     StartSecond: 0,
   },
+  // True = the simulator generates TLEs matching the configured shells.
+  // False makes Phase 1 load a real TLE file, whose satellite count must
+  // match the shell config exactly or the run crashes with an IndexError.
+  // Defaults OFF: generation only happens when the user explicitly opts in
+  // via the "Generate Custom TLEs" toggle in SatConfigForm.
   generate_TLE: false,
   operator_name: 'starlink',
   shells: [
     {
       name: 'shell1',
-      orbits: 72,
-      sat_per_orbit: 22,
+      // 20×15 = 300 satellites — matches the backend's sat_default.yaml and
+      // runs locally in about a minute (the old 72×22 Starlink scale needs
+      // the lab compute server).
+      orbits: 20,
+      sat_per_orbit: 15,
       altitude: 550,
       inclination: 53,
       pattern: 'walker_delta',

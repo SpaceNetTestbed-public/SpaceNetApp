@@ -12,7 +12,7 @@ export function FloatingDocsButton() {
     <>
       <Button
         onClick={() => setDocsOpen(true)}
-        className="fixed bottom-6 right-6 z-40 h-14 w-14 rounded-full bg-maroon hover:bg-maroon-hover text-white shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center p-0"
+        className="fixed bottom-6 right-6 z-40 h-14 w-14 rounded-full bg-vt-maroon hover:bg-vt-maroon-hover text-white shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center p-0"
         aria-label="Open documentation"
       >
         <BookOpen className="h-6 w-6" />

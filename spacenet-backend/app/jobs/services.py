@@ -1,7 +1,9 @@
+import calendar
 import os
 import random
 import string
 import subprocess
+import yaml
 import zipfile
 from datetime import datetime
 from rq import get_current_job
@@ -32,15 +34,34 @@ def process_config(experiment_id):
         # db = get_db()
 
         try:
+            clear_stale_generated_tles(experiment_id)
             zip = f'local_workspace/{experiment_id}/output.zip'
             folder = f'local_workspace/{experiment_id}/output'
+            # Remove BOTH old artifacts (a successful run leaves zip AND
+            # folder). A leftover folder makes the simulator ask
+            # "overwrite? (y/[n])" on stdin, which EOFErrors in the worker.
             if os.path.isfile(zip):
                 os.remove(zip)
-            elif os.path.isdir(folder):
+            if os.path.isdir(folder):
                 shutil.rmtree(folder)
-            # Example: generate folder / run phase_1
-            # logs += generate_random_text_folder(f"users/{username}/{experiment_name}/output/") + "\n"
-            logs += run_phase_1(experiment_id)
+            zip = f'local_workspace/{experiment_id}/gifs.zip'
+            folder = f'local_workspace/{experiment_id}/gifs'
+            # Includes each render directory and its sibling ZIP archive.
+            if os.path.isfile(zip):
+                os.remove(zip)
+            if os.path.isdir(folder):
+                shutil.rmtree(folder)
+            phase_logs, return_code = run_phase_1(experiment_id)
+            logs += phase_logs
+            # The simulator can partially fail (e.g. a worker thread crashes)
+            # yet still leave a half-populated output folder behind. If we
+            # don't check the exit code here we'd zip that partial output and
+            # wrongly report success — hiding the failure from the user.
+            if return_code != 0:
+                raise RuntimeError(
+                    f"Phase 1 simulator exited with code {return_code}. "
+                    f"The run did not complete — see the log above for the traceback."
+                )
 
             zip_path = zip_folder(f"local_workspace/{experiment_id}/output")
             logs += f"✅ Folder zipped to: {zip_path}\n"
@@ -92,13 +113,35 @@ def process_config_phase_2(experiment_id):
 
         try:
             zip = f'local_workspace/{experiment_id}/output_mn.zip'
-            
-            # Note: We DO NOT delete the folder here, because Phase 2 needs 
-            # the 'output' folder that Phase 1 just created!
+
+            # Note: We DO NOT delete the 'output' folder here, because
+            # Phase 2 needs the output that Phase 1 just created! We also
+            # DO NOT rmtree the 'output_mn' folder itself (unlike Phase 1's
+            # equivalent cleanup above) — Phase 2's submodule has no
+            # interactive overwrite prompt to guard against. Its app
+            # manager (pingApp / iperfApp in
+            # constellation-simulator-main/lib/spacenet_app_manager.py)
+            # already deletes only its own known result files
+            # (ping_results.txt, or iperf_server_results.txt /
+            # iperf_client_results.txt) non-interactively before writing.
+            # rmtree'ing the whole folder here would destroy results from a
+            # different AppName run (e.g. wipe ping_results.txt when
+            # re-running with AppName: Iperf) that this run never asked to
+            # regenerate. Only the stale top-level zip is safe/necessary to
+            # clear, since zip_folder() below rebuilds it fresh either way.
             if os.path.isfile(zip):
                 os.remove(zip)
 
-            logs += run_phase_2(experiment_id)
+            phase_logs, return_code = run_phase_2(experiment_id)
+            logs += phase_logs
+            # Same contract as Phase 1: a crashed simulator can leave a
+            # half-populated output_mn folder behind. Without this check the
+            # job would zip the partial output and wrongly report success.
+            if return_code != 0:
+                raise RuntimeError(
+                    f"Phase 2 simulator exited with code {return_code}. "
+                    f"The run did not complete — see the log above for the traceback."
+                )
 
             # Zip the 'output' folder, but explicitly name the new zip file 'output_mn.zip'
             zip_path = zip_folder(f"local_workspace/{experiment_id}/output_mn", zip)
@@ -148,9 +191,15 @@ def process_config_gif_maker(experiment_id, gif_name):
         # Now get_db() works
 
         try:
-            # Example: generate folder / run phase_1
-            # logs += generate_random_text_folder(f"users/{username}/{experiment_name}/output/") + "\n"
-            logs += create_gif(experiment_id, gif_name)
+            gif_logs, return_code = create_gif(experiment_id, gif_name)
+            logs += gif_logs
+            # A crashed plotter must mark the job failed — otherwise the GUI
+            # polls forever for an output file that will never appear.
+            if return_code != 0:
+                raise RuntimeError(
+                    f"Gif maker exited with code {return_code}. "
+                    f"The render did not complete — see the log above for the traceback."
+                )
 
             zip_path = zip_folder(f"local_workspace/{experiment_id}/gifs/{gif_name}")
             logs += f"✅ Folder zipped to: {zip_path}\n"
@@ -185,6 +234,66 @@ def process_config_gif_maker(experiment_id, gif_name):
             job.save_meta()
 
 
+def _looks_generated(tle_path: str) -> bool:
+    """
+    True only if every satellite name line looks generator-produced.
+
+    generate_fake_TLE names satellites '<op_name>-<1000+n>' in lowercase
+    ('starlink-1000'); Celestrak's real files use uppercase ('STARLINK-32423').
+    Deleting a real bundled TLE is unrecoverable - they are gitignored, and a
+    historical epoch cannot be re-fetched from Celestrak's current feed.
+    """
+    with open(tle_path, "r") as f:
+        for line in f:
+            stripped = line.strip()
+            if not stripped or stripped[0].isdigit():
+                continue  # TLE data line 1/2, not a name line
+            if not stripped.startswith("starlink-"):
+                return False
+    return True
+
+
+def clear_stale_generated_tles(experiment_id: int) -> None:
+    """The Phase 1 TLE generator APPENDS to <TLEFilePath>starlink_tles/starlink_<sim_ts>.
+    If that file already exists (a previous run with the same sim date, or a
+    bundled real-TLE file whose timestamp collides), the simulator ends up
+    loading the old and new TLE sets together and crashes with a
+    satellite-count mismatch (IndexError). Remove the target file before the
+    generator runs so every generate_TLE run starts from a clean slate."""
+    config_path = f"local_workspace/{experiment_id}/sat_config.yaml"
+    try:
+        with open(config_path, "r") as f:
+            sat_config = yaml.safe_load(f)
+    except OSError:
+        return
+    if not sat_config or not sat_config.get("generate_TLE"):
+        return
+    sdt = sat_config.get("Sim_Date_Time", {})
+    try:
+        # Mirrors generate_TLE_main's calendar.timegm-based filename.
+        sim_ts = calendar.timegm((
+            int(sdt["StartYear"]), int(sdt["StartMonth"]), int(sdt["StartDay"]),
+            int(sdt["StartHour"]), int(sdt["StartMinute"]), int(sdt["StartSecond"]),
+        ))
+    except (KeyError, TypeError, ValueError):
+        return
+    # The generator hardcodes the starlink_tles/ subfolder and file prefix.
+    stale_tle = os.path.join(
+        sat_config.get("TLEFilePath", ""), "starlink_tles", f"starlink_{sim_ts}"
+    )
+    if os.path.isfile(stale_tle):
+        # Guard beyond the original fix: experiments created before the default
+        # sim date moved off 2024-09-27 22:15:06 still target starlink_1727475306,
+        # which is a REAL bundled TLE. Deleting it would be unrecoverable.
+        if not _looks_generated(stale_tle):
+            raise RuntimeError(
+                f"Refusing to delete {stale_tle}: it contains real TLE entries, so this "
+                "experiment's simulation date collides with a bundled real TLE file. "
+                "Move the sim date off that timestamp, or point TLEFilePath elsewhere."
+            )
+        os.remove(stale_tle)
+
+
 # -------------------------
 # PHASE 1 (External command)
 # -------------------------
@@ -215,7 +324,7 @@ def run_phase_1(experiment_id):
 
     process.wait()
     logs += f"\n--- Phase_1 finished with code {process.returncode} ---\n"
-    return logs
+    return logs, process.returncode
     
 # -------------------------
 # PHASE 1 output (External command)
@@ -245,7 +354,7 @@ def create_gif(experiment_id, gif_name):
 
     process.wait()
     logs += f"\n--- Gif Maker finished with code {process.returncode} ---\n"
-    return logs
+    return logs, process.returncode
 
 # -------------------------
 # PHASE 2 (External command)
@@ -275,7 +384,7 @@ def run_phase_2(experiment_id):
 
     process.wait()
     logs += f"\n--- Phase_2 finished with code {process.returncode} ---\n"
-    return logs
+    return logs, process.returncode
 
 
 # -------------------------

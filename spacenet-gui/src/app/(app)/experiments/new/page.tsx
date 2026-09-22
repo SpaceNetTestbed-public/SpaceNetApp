@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Save, Play, Upload, Download, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Input, Textarea } from '@/components/ui/input'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { SatConfigForm } from '@/components/experiment-config/SatConfigForm'
 import { MainConfigForm } from '@/components/experiment-config/MainConfigForm'
@@ -27,6 +28,11 @@ export default function NewExperimentPage() {
     hasBeenRun: false,
   })
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [nameTouched, setNameTouched] = useState(false)
+
+  const nameError =
+    nameTouched && !config.experimentName.trim() ? 'Experiment name is required' : undefined
 
   const updateConfig = (updates: Partial<ExperimentConfig>) => {
     setConfig((prev) => ({ ...prev, ...updates }))
@@ -35,19 +41,26 @@ export default function NewExperimentPage() {
 
   const handleSave = async () => {
     if (!config.experimentName.trim()) {
+      setNameTouched(true)
       toast.error('Experiment name is required')
       return
     }
 
-    // TODO: Save to backend API
-    await new Promise((resolve) => setTimeout(resolve, 500))
-    toast.success('Profile saved')
-    setHasUnsavedChanges(false)
-    // TODO: Navigate to experiments list or edit page
+    setIsSaving(true)
+    try {
+      // TODO: Save to backend API
+      await new Promise((resolve) => setTimeout(resolve, 500))
+      toast.success('Profile saved')
+      setHasUnsavedChanges(false)
+      // TODO: Navigate to experiments list or edit page
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const handleSaveAndRun = async () => {
     if (!config.experimentName.trim()) {
+      setNameTouched(true)
       toast.error('Experiment name is required')
       return
     }
@@ -99,20 +112,24 @@ export default function NewExperimentPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={handleImportYAML}>
+          <Button variant="secondary" onClick={handleImportYAML}>
             <Upload className="h-4 w-4 mr-2" />
             Import YAML
           </Button>
-          <Button variant="outline" onClick={handleExportYAML}>
+          <Button variant="secondary" onClick={handleExportYAML}>
             <Download className="h-4 w-4 mr-2" />
             Export YAML
           </Button>
-          <Button variant="outline" onClick={handleSave}>
-            <Save className="h-4 w-4 mr-2" />
-            Save Configuration
+          <Button variant="secondary" onClick={handleSave} disabled={isSaving}>
+            <Save className="h-4 w-4 mr-2" aria-hidden="true" />
+            {isSaving ? 'Saving…' : 'Save Configuration'}
           </Button>
-          <Button className="bg-orange-500 hover:bg-orange-600 text-white" onClick={handleSaveAndRun}>
-            <Play className="h-4 w-4 mr-2" />
+          <Button
+            className="bg-vt-orange hover:bg-vt-orange-hover active:bg-vt-orange-pressed text-white"
+            onClick={handleSaveAndRun}
+            disabled={isSaving}
+          >
+            <Play className="h-4 w-4 mr-2" aria-hidden="true" />
             Save & Run Simulation
           </Button>
           <Link href="/experiments" aria-label="Back to experiments">
@@ -134,18 +151,17 @@ export default function NewExperimentPage() {
           Profile Metadata
         </h2>
         <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-light-text dark:text-dark-text mb-1.5">
-              Experiment Name <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={config.experimentName}
-              onChange={(e) => updateConfig({ experimentName: e.target.value })}
-              placeholder="e.g., Starlink_Gen2_Test"
-              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
-            />
-          </div>
+          <Input
+            type="text"
+            label={<>Experiment Name <span className="text-red-500" aria-hidden="true">*</span></>}
+            value={config.experimentName}
+            onChange={(e) => updateConfig({ experimentName: e.target.value })}
+            onBlur={() => setNameTouched(true)}
+            error={nameError}
+            required
+            placeholder="e.g., Starlink_Gen2_Test"
+            className="bg-light-bg dark:bg-dark-bg"
+          />
           <div>
             <label className="block text-sm font-medium text-light-text dark:text-dark-text mb-1.5">
               Operator Type <span className="text-red-500">*</span>
@@ -153,7 +169,7 @@ export default function NewExperimentPage() {
             <select
               value={config.operatorType}
               onChange={(e) => updateConfig({ operatorType: e.target.value as ExperimentConfig['operatorType'] })}
-              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
+              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-vt-maroon/50"
             >
               <option value="Starlink">Starlink</option>
               <option value="OneWeb">OneWeb</option>
@@ -162,33 +178,26 @@ export default function NewExperimentPage() {
               <option value="Test Network">Test Network</option>
             </select>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-light-text dark:text-dark-text mb-1.5">
-              Description
-            </label>
-            <textarea
-              value={config.description}
-              onChange={(e) => updateConfig({ description: e.target.value })}
-              placeholder="Enter experiment description..."
-              rows={3}
-              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50 resize-none"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-light-text dark:text-dark-text mb-1.5">
-              Tags (comma-separated)
-            </label>
-            <input
-              type="text"
-              value={(config.tags ?? []).join(', ')}
-              onChange={(e) => {
-                const tags = e.target.value.split(',').map((t) => t.trim()).filter(Boolean)
-                updateConfig({ tags })
-              }}
-              placeholder="e.g., Phase 1, Production, Experimental"
-              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
-            />
-          </div>
+          <Textarea
+            label="Description"
+            value={config.description}
+            onChange={(e) => updateConfig({ description: e.target.value })}
+            placeholder="Enter experiment description..."
+            rows={3}
+            className="bg-light-bg dark:bg-dark-bg resize-none"
+          />
+          <Input
+            type="text"
+            label="Tags (comma-separated)"
+            value={(config.tags ?? []).join(', ')}
+            onChange={(e) => {
+              const tags = e.target.value.split(',').map((t) => t.trim()).filter(Boolean)
+              updateConfig({ tags })
+            }}
+            placeholder="e.g., Phase 1, Production, Experimental"
+            helperText="Tags group experiments on the projects page."
+            className="bg-light-bg dark:bg-dark-bg"
+          />
         </div>
       </motion.div>
 
@@ -204,6 +213,7 @@ export default function NewExperimentPage() {
             config={config.satConfig}
             onChange={(satConfig) => updateConfig({ satConfig })}
             tleLocked={config.hasBeenRun || false}
+            isNew
           />
         </TabsContent>
 
@@ -222,14 +232,18 @@ export default function NewExperimentPage() {
             <span className="text-sm text-light-text/60 dark:text-dark-subtext">Unsaved changes</span>
             <div className="flex gap-2">
               <Link href="/experiments">
-                <Button variant="outline">Cancel</Button>
+                <Button variant="secondary">Cancel</Button>
               </Link>
-              <Button onClick={handleSave} className="bg-maroon hover:bg-maroon-hover text-white">
-                <Save className="h-4 w-4 mr-2" />
-                Save
+              <Button variant="primary" onClick={handleSave} disabled={isSaving}>
+                <Save className="h-4 w-4 mr-2" aria-hidden="true" />
+                {isSaving ? 'Saving…' : 'Save'}
               </Button>
-              <Button className="bg-orange-500 hover:bg-orange-600 text-white" onClick={handleSaveAndRun}>
-                <Play className="h-4 w-4 mr-2" />
+              <Button
+                className="bg-vt-orange hover:bg-vt-orange-hover active:bg-vt-orange-pressed text-white"
+                onClick={handleSaveAndRun}
+                disabled={isSaving}
+              >
+                <Play className="h-4 w-4 mr-2" aria-hidden="true" />
                 Save & Run Simulation
               </Button>
             </div>

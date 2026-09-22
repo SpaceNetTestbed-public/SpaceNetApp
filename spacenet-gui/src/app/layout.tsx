@@ -17,13 +17,13 @@ export default function RootLayout({ children }:{children:React.ReactNode}) {
       <body suppressHydrationWarning className={`${inter.variable} font-inter bg-light-bg text-light-text dark:bg-dark-bg dark:text-dark-text`}>
         <a
           href="#main-content"
-          className="fixed left-[-9999px] top-4 z-50 px-4 py-2 bg-red-800 text-white rounded-md focus:left-4 outline-none"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-vt-maroon focus:text-white focus:rounded-btn focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2"
         >
           Skip to main content
         </a>
         <Providers>
           <ConditionalHeader />
-          <main id="main-content">{children}</main>
+          <main id="main-content" tabIndex={-1} className="outline-none">{children}</main>
           <ToasterProvider />
         </Providers>
       </body>

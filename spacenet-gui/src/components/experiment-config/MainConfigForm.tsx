@@ -158,7 +158,7 @@ export function MainConfigForm({ config, onChange }: MainConfigFormProps) {
             <select
               value={config.Debug}
               onChange={(e) => updateField('Debug', parseInt(e.target.value) as 0 | 1)}
-              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
+              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-vt-maroon/50"
             >
               <option value="0">0 (Disabled)</option>
               <option value="1">1 (Enabled)</option>
@@ -185,64 +185,8 @@ export function MainConfigForm({ config, onChange }: MainConfigFormProps) {
               onChange={(e) => updateField('MonitorResource', e.target.checked)}
               className="sr-only peer"
             />
-            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-maroon/20 dark:peer-focus:ring-maroon/30 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-maroon"></div>
+            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-vt-maroon/20 dark:peer-focus:ring-vt-maroon/30 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-vt-maroon"></div>
           </label>
-        </div>
-      </div>
-
-      {/* Routing Nodes */}
-      <div className="rounded-card bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border p-6">
-        <h3 className="text-lg font-semibold text-light-text dark:text-dark-text mb-4">
-          Source & Destination Nodes
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-light-text dark:text-dark-text mb-1.5">
-              Source Node <span className="text-red-500">*</span>
-            </label>
-            <select
-              value={config.SourceNode}
-              onChange={(e) => {
-                const val = parseInt(e.target.value);
-                updateField("SourceNode", val);
-              }}
-              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
-            >
-              {stations.map((st) => (
-                <option
-                  key={st.id}
-                  value={st.id}
-                  disabled={st.id === config.DestNode}   // <-- disable selected dest
-                >
-                  {st.id} - {st.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-light-text dark:text-dark-text mb-1.5">
-              Destination Node <span className="text-red-500">*</span>
-            </label>
-            <select
-              value={config.DestNode}
-              onChange={(e) => {
-                const val = parseInt(e.target.value);
-                updateField("DestNode", val);
-              }}
-              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
-            >
-              {stations.map((st) => (
-                <option
-                  key={st.id}
-                  value={st.id}
-                  disabled={st.id === config.SourceNode}  // <-- disable selected source
-                >
-                  {st.id} - {st.name}
-                </option>
-              ))}
-            </select>
-          </div>
         </div>
       </div>
 
@@ -258,7 +202,7 @@ export function MainConfigForm({ config, onChange }: MainConfigFormProps) {
           <select
             value={config.RouteWeight}
             onChange={(e) => updateField('RouteWeight', e.target.value as MainConfig['RouteWeight'])}
-            className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
+            className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-vt-maroon/50"
           >
             <option value="hops">hops</option>
             <option value="latency">latency</option>
@@ -285,7 +229,7 @@ export function MainConfigForm({ config, onChange }: MainConfigFormProps) {
             <select
               value={config.gs_file_id}
               onChange={(e) => {updateField("gs_file_id", parseInt(e.target.value) || 0); updateGSNodes(parseInt(e.target.value))}}
-              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50 text-sm"
+              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-vt-maroon/50 text-sm"
             >
               <option value={-1}>default</option>
               {gsFiles.map((file) => (
@@ -306,7 +250,7 @@ export function MainConfigForm({ config, onChange }: MainConfigFormProps) {
               step="0.1"
               value={config.min_elevation_angle}
               onChange={(e) => updateField('min_elevation_angle', parseFloat(e.target.value) || 0)}
-              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
+              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-vt-maroon/50"
               aria-invalid={config.min_elevation_angle < 0 || config.min_elevation_angle > 90}
             />
             <p className="text-xs text-light-text/60 dark:text-dark-subtext mt-1">0–90 degrees</p>
@@ -318,7 +262,7 @@ export function MainConfigForm({ config, onChange }: MainConfigFormProps) {
             <select
               value={config.AssociationCritGSL}
               onChange={(e) => updateField('AssociationCritGSL', e.target.value)}
-              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
+              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-vt-maroon/50"
             >
               <option value="BASED_ON_DISTANCE_ONLY_MININET">BASED_ON_DISTANCE_ONLY_MININET</option>
               <option value="BASED_ON_DISTANCE_ONLY_MININET_ALAN">BASED_ON_DISTANCE_ONLY_MININET_ALAN</option>
@@ -341,8 +285,64 @@ export function MainConfigForm({ config, onChange }: MainConfigFormProps) {
                 onChange={(e) => updateField('UseWeatherData', e.target.checked)}
                 className="sr-only peer"
               />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-maroon/20 dark:peer-focus:ring-maroon/30 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-maroon"></div>
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-vt-maroon/20 dark:peer-focus:ring-vt-maroon/30 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-vt-maroon"></div>
             </label>
+          </div>
+        </div>
+      </div>
+
+      {/* Routing Nodes */}
+      <div className="rounded-card bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border p-6">
+        <h3 className="text-lg font-semibold text-light-text dark:text-dark-text mb-4">
+          Source & Destination Nodes
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-light-text dark:text-dark-text mb-1.5">
+              Source Node <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={config.SourceNode}
+              onChange={(e) => {
+                const val = parseInt(e.target.value);
+                updateField("SourceNode", val);
+              }}
+              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-vt-maroon/50"
+            >
+              {stations.map((st) => (
+                <option
+                  key={st.id}
+                  value={st.id}
+                  disabled={st.id === config.DestNode}   // <-- disable selected dest
+                >
+                  {st.id} - {st.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-light-text dark:text-dark-text mb-1.5">
+              Destination Node <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={config.DestNode}
+              onChange={(e) => {
+                const val = parseInt(e.target.value);
+                updateField("DestNode", val);
+              }}
+              className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-vt-maroon/50"
+            >
+              {stations.map((st) => (
+                <option
+                  key={st.id}
+                  value={st.id}
+                  disabled={st.id === config.SourceNode}  // <-- disable selected source
+                >
+                  {st.id} - {st.name}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
       </div>
@@ -371,7 +371,7 @@ export function MainConfigForm({ config, onChange }: MainConfigFormProps) {
               onChange={(e) => handleIstnToggle(e.target.checked)}
               className="sr-only peer"
             />
-            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-maroon/20 dark:peer-focus:ring-maroon/30 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-maroon"></div>
+            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-vt-maroon/20 dark:peer-focus:ring-vt-maroon/30 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-vt-maroon"></div>
           </label>
         </div>
 
@@ -398,7 +398,7 @@ export function MainConfigForm({ config, onChange }: MainConfigFormProps) {
                       onChange={(e) => updateAzureField('t2t_use_azure', e.target.checked)}
                       className="sr-only peer"
                     />
-                    <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-maroon/20 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-maroon"></div>
+                    <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-vt-maroon/20 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-vt-maroon"></div>
                   </label>
                 </div>
               </div>
@@ -416,7 +416,7 @@ export function MainConfigForm({ config, onChange }: MainConfigFormProps) {
                       onChange={(e) => updateWonderProxyField('t2t_use_wonderproxy', e.target.checked)}
                       className="sr-only peer"
                     />
-                    <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-maroon/20 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-maroon"></div>
+                    <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-vt-maroon/20 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-vt-maroon"></div>
                   </label>
                 </div>
               </div>

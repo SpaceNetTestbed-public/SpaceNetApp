@@ -1,17 +1,18 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { useState, useEffect, useCallback } from 'react'
+import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import { AlertTriangle } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { Skeleton, SkeletonStatus } from '@/components/ui/skeleton'
+import { ErrorState } from '@/components/ui/error-state'
 import { SatConfigForm } from '@/components/experiment-config/SatConfigForm'
 import { MainConfigForm } from '@/components/experiment-config/MainConfigForm'
 import { ExperimentConfig, SatConfig, MainConfig } from '@/types/experiment-config'
 import { Experiment } from '@/types/types'
 import { toast } from 'sonner'
-import { API_URL, apiFetch } from '@/lib/api'
+import { API_URL, apiFetch, ApiError } from '@/lib/api'
 import { getApiErrorMessage } from '@/lib/utils'
-import { generateMainYAML, generateSatYAML } from '@/lib/yaml'
 import { ExperimentEditHeader } from '@/components/experiment/ExperimentEditHeader'
 import { ExperimentMetadataForm } from '@/components/experiment/ExperimentMetadataForm'
 import { ExperimentEditFooter } from '@/components/experiment/ExperimentEditFooter'
@@ -20,12 +21,18 @@ import { useExperimentSave } from '@/hooks/useExperimentSave'
 export default function EditExperimentPage() {
   const router = useRouter()
   const params = useParams()
+  const searchParams = useSearchParams()
   const id = params.id as string
+  // Set by the create-experiment modal redirect (?new=true). Distinguishes
+  // a freshly created experiment from one opened later via the experiments
+  // list — the /experiments/new page is unused in the real creation flow.
+  const isFreshCreate = searchParams.get('new') === 'true'
   const [activeTab, setActiveTab] = useState('sat-config')
   const [config, setConfig] = useState<ExperimentConfig | null>(null)
   const [originalConfig, setOriginalConfig] = useState<ExperimentConfig | null>(null)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [appName, setAppName] = useState('Ping')
   const [originalAppName, setOriginalAppName] = useState('Ping')
 
@@ -35,52 +42,82 @@ export default function EditExperimentPage() {
     onSuccess: () => setHasUnsavedChanges(false),
   })
 
-  useEffect(() => {
-    const fetchExperiment = async () => {
-      try {
-        const data = await apiFetch(`/experiments/${id}`) as Experiment
-        const satConfigData = await apiFetch(`/experiments/${id}/sat`) as SatConfig
-        const mainConfigData = await apiFetch(`/experiments/${id}/main`) as MainConfig
-        const mainMnConfigData = await apiFetch(`/experiments/${id}/main-mn`) as { AppName: string }
-        setAppName(mainMnConfigData.AppName)
-        setOriginalAppName(mainMnConfigData.AppName)
-        const hasBeenRun = data.hasPhase1 || data.hasPhase2
-        setConfig({
-          experimentName: data.name,
-          description: data.description ?? "",
-          tags: data.tags ?? [],
-          satConfig: satConfigData,
-          mainConfig: mainConfigData,
-          id: data.id,
-          isNew: false,
-          hasBeenRun,
-        })
-        setOriginalConfig({
-          experimentName: data.name,
-          description: data.description ?? "",
-          tags: data.tags ?? [],
-          satConfig: satConfigData,
-          mainConfig: mainConfigData,
-          id: data.id,
-          isNew: false,
-          hasBeenRun,
-        })
-      } catch (err) {
-        console.error("Failed to load experiment:", err)
-        toast.error(getApiErrorMessage(err, 'Failed to load experiment'), { id: 'experiment-load' })
-      } finally {
-        // Keep setLoading here only — do NOT call it outside the async fn
-        // or loading becomes false before data arrives (race condition).
-        setLoading(false)
+  const fetchExperiment = useCallback(async () => {
+    setLoading(true)
+    setLoadError(null)
+    try {
+      // All fetches are independent — run in parallel. main-mn may not exist
+      // yet for experiments that never configured Phase 2, so tolerate it failing.
+      const [data, satConfigData, mainConfigData, mainMnConfigData] = await Promise.all([
+        apiFetch(`/experiments/${id}`) as Promise<Experiment>,
+        apiFetch(`/experiments/${id}/sat`) as Promise<SatConfig>,
+        apiFetch(`/experiments/${id}/main`) as Promise<MainConfig>,
+        (apiFetch(`/experiments/${id}/main-mn`) as Promise<{ AppName: string }>).catch(() => null),
+      ])
+      const loadedAppName = mainMnConfigData?.AppName ?? 'Ping'
+      setAppName(loadedAppName)
+      setOriginalAppName(loadedAppName)
+      const hasBeenRun = data.hasPhase1 || data.hasPhase2
+      const loaded: ExperimentConfig = {
+        experimentName: data.name,
+        description: data.description ?? "",
+        tags: data.tags ?? [],
+        satConfig: satConfigData,
+        mainConfig: mainConfigData,
+        id: data.id,
+        isNew: isFreshCreate,
+        hasBeenRun,
       }
+      setConfig(loaded)
+      setOriginalConfig(structuredClone(loaded))
+    } catch (err) {
+      // Expected 4xx responses (e.g. 404 for a deleted experiment) are
+      // surfaced via ErrorState below — skip the console noise unless the
+      // failure is unexpected (network error or 5xx).
+      if (!(err instanceof ApiError) || err.status >= 500) {
+        console.error("Failed to load experiment:", err)
+      }
+      setLoadError(getApiErrorMessage(err, 'Failed to load experiment'))
+    } finally {
+      // Keep setLoading here only — do NOT call it outside the async fn
+      // or loading becomes false before data arrives (race condition).
+      setLoading(false)
     }
-    fetchExperiment()
-  }, [id])
+  }, [id, isFreshCreate])
 
-  if (loading || !config) {
+  useEffect(() => {
+    void fetchExperiment()
+  }, [fetchExperiment])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen p-6 sm:p-8 space-y-6">
+        <SkeletonStatus>Loading experiment…</SkeletonStatus>
+        <div className="flex items-start justify-between">
+          <div className="space-y-3">
+            <Skeleton className="h-9 w-40 rounded-btn" />
+            <Skeleton className="h-10 w-96" />
+          </div>
+          <div className="flex gap-2">
+            <Skeleton className="h-9 w-32 rounded-btn" />
+            <Skeleton className="h-9 w-32 rounded-btn" />
+            <Skeleton className="h-9 w-40 rounded-btn" />
+          </div>
+        </div>
+        <Skeleton className="h-64 w-full rounded-card" />
+        <Skeleton className="h-96 w-full rounded-card" />
+      </div>
+    )
+  }
+
+  if (loadError || !config) {
     return (
       <div className="min-h-screen p-6 sm:p-8 flex items-center justify-center">
-        <div className="text-light-text/60 dark:text-dark-subtext">Loading...</div>
+        <ErrorState
+          title="Failed to load experiment"
+          message={loadError ?? undefined}
+          onRetry={() => void fetchExperiment()}
+        />
       </div>
     )
   }
@@ -98,20 +135,25 @@ export default function EditExperimentPage() {
     setHasUnsavedChanges(true)
   }
 
-  const handleSaveAndRun = async () => {
+  const handleSaveAndRun = () => {
     if (!config?.experimentName.trim()) {
       toast.error('Experiment name is required')
       return
     }
 
+    void executeSaveAndRun()
+  }
+
+  const executeSaveAndRun = async () => {
     setSavingAndRunning(true)
     try {
       const ok = await handleSave(config)
-      if (ok) router.push(`/experiments/${id}/simulate`)
+      if (!ok) return
+
+      router.push(`/experiments/${id}/simulate`)
     } finally {
       setSavingAndRunning(false)
     }
-    // TODO: Start simulation via API
   }
 
   const handleImportYAML = () => {
@@ -138,7 +180,7 @@ export default function EditExperimentPage() {
   }
 
   return (
-    <div className="min-h-screen p-6 sm:p-8">
+    <div className="min-h-screen p-6 sm:p-8 pb-28 sm:pb-32">
       <ExperimentEditHeader
         experimentName={config.experimentName}
         saving={saving}
@@ -151,11 +193,11 @@ export default function EditExperimentPage() {
       />
 
       {config.hasBeenRun && (
-        <div className="mb-6 p-4 rounded-card bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 flex items-start gap-3">
-          <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" aria-hidden="true" />
+        <div className="mb-6 p-4 rounded-card bg-vt-orange/10 dark:bg-vt-orange/15 border border-vt-orange/30 dark:border-vt-orange/40 flex items-start gap-3" role="status">
+          <AlertTriangle className="h-5 w-5 text-vt-orange shrink-0 mt-0.5" aria-hidden="true" />
           <div>
-            <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">This experiment has already been run</p>
-            <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
+            <p className="text-sm font-semibold text-vt-orange-pressed dark:text-vt-orange">This experiment has already been run</p>
+            <p className="text-xs text-vt-orange-pressed/80 dark:text-vt-orange/80 mt-0.5">
               Editing the satellite configuration may invalidate existing simulation results.
             </p>
           </div>
@@ -183,6 +225,7 @@ export default function EditExperimentPage() {
             config={config.satConfig}
             onChange={(satConfig) => updateConfig({ satConfig })}
             tleLocked={config.hasBeenRun || false}
+            isNew={isFreshCreate}
           />
         </TabsContent>
 
@@ -199,7 +242,7 @@ export default function EditExperimentPage() {
               <select
                 value={appName}
                 onChange={(e) => {setAppName(e.target.value); setHasUnsavedChanges(true)}}
-                className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
+                className="w-full px-3 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-vt-maroon/50"
               >
                 <option value="Ping">Ping</option>
                 <option value="iPerf">iPerf</option>

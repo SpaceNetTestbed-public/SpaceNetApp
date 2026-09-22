@@ -3,9 +3,14 @@
 import { useState, useMemo, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Plus, Search, BookOpen, ChevronDown, Trash2, Upload } from 'lucide-react'
+import { Plus, Search, BookOpen, ChevronDown, Trash2, Upload, FlaskConical } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { Input, Textarea } from '@/components/ui/input'
+import { Dialog, DialogHeader, DialogTitle, DialogBody, DialogFooter } from '@/components/ui/dialog'
+import { Skeleton, SkeletonStatus } from '@/components/ui/skeleton'
+import { EmptyState } from '@/components/ui/empty-state'
+import { ErrorState } from '@/components/ui/error-state'
 import { ExperimentGroup } from '@/components/ExperimentGroup'
 import { motion } from 'framer-motion'
 import { DocsDrawer } from '@/components/DocsDrawer'
@@ -17,35 +22,35 @@ import yaml from "js-yaml"
 
 function ExperimentCardSkeleton() {
   return (
-    <div className="rounded-card bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border p-6 animate-pulse">
+    <div className="rounded-card bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border p-6">
       <div className="flex items-start justify-between mb-4">
-        <div className="h-6 bg-light-border dark:bg-dark-border rounded w-2/3" />
+        <Skeleton className="h-6 w-2/3" />
         <div className="flex items-center gap-1.5">
-          <div className="h-2 w-2 rounded-full bg-light-border dark:bg-dark-border" />
-          <div className="h-3 bg-light-border dark:bg-dark-border rounded w-16" />
+          <Skeleton className="h-2 w-2 rounded-full" />
+          <Skeleton className="h-3 w-16" />
         </div>
       </div>
 
       <div className="space-y-2 mb-3">
-        <div className="h-4 bg-light-border dark:bg-dark-border rounded w-full" />
-        <div className="h-4 bg-light-border dark:bg-dark-border rounded w-4/5" />
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-4/5" />
       </div>
 
       <div className="flex items-center gap-2 mb-3">
-        <div className="h-5 w-16 bg-light-border dark:bg-dark-border rounded-full" />
-        <div className="h-5 w-16 bg-light-border dark:bg-dark-border rounded-full" />
+        <Skeleton className="h-5 w-16 rounded-full" />
+        <Skeleton className="h-5 w-16 rounded-full" />
       </div>
 
       <div className="flex flex-wrap gap-1.5 mb-4">
-        <div className="h-5 w-12 bg-light-border dark:bg-dark-border rounded-full" />
-        <div className="h-5 w-16 bg-light-border dark:bg-dark-border rounded-full" />
+        <Skeleton className="h-5 w-12 rounded-full" />
+        <Skeleton className="h-5 w-16 rounded-full" />
       </div>
 
       <div className="flex items-center gap-2 pt-4 border-t border-light-border dark:border-dark-border">
-        <div className="h-4 w-24 bg-light-border dark:bg-dark-border rounded mr-auto" />
-        <div className="h-9 w-28 bg-light-border dark:bg-dark-border rounded-btn" />
-        <div className="h-9 w-36 bg-light-border dark:bg-dark-border rounded-btn" />
-        <div className="h-9 w-9 bg-light-border dark:bg-dark-border rounded-btn" />
+        <Skeleton className="h-4 w-24 mr-auto" />
+        <Skeleton className="h-9 w-28 rounded-btn" />
+        <Skeleton className="h-9 w-36 rounded-btn" />
+        <Skeleton className="h-9 w-9 rounded-btn" />
       </div>
     </div>
   )
@@ -56,6 +61,7 @@ export default function ExperimentsPage() {
   // Backend data
   const [experiments, setExperiments] = useState<Experiment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   
   // Modal state
   const [showModal, setShowModal] = useState(false);
@@ -67,6 +73,7 @@ export default function ExperimentsPage() {
   const [newDescription, setNewDescription] = useState("");
   const [newTag, setNewTag] = useState("");
   const [tags, setTags] = useState<string[]>([]);
+  const [nameTouched, setNameTouched] = useState(false);
   const [creating, setCreating] = useState(false);
   const [gsFile, setGSFile] = useState(-1);
 
@@ -81,18 +88,15 @@ export default function ExperimentsPage() {
   const [deletingMN, setDeletingMN] = useState(false);
   const [docsOpen, setDocsOpen] = useState(false);
 
-  useEffect(() => {
-      const fetchGSFiles = async () => {
-        try {
-          const data = await apiFetch("/ground_station_file") as GroundStationFileSummary[];
-          setGsFiles(data);
-        } catch (err) {
-          console.error("Failed to load GS files:", err)
-          toast.error(getApiErrorMessage(err, 'Failed to load ground station files'), { id: 'main-config-gs-files' })
-        }
-      };
-      fetchGSFiles();
-    }, []); // only fetch files once
+  const fetchGSFiles = async () => {
+    try {
+      const data = await apiFetch("/ground_station_file") as GroundStationFileSummary[];
+      setGsFiles(data);
+    } catch (err) {
+      console.error("Failed to load GS files:", err)
+      toast.error(getApiErrorMessage(err, 'Failed to load ground station files'), { id: 'main-config-gs-files' })
+    }
+  };
 
   // Existing Configs State
   const [existingConfigs, setExistingConfigs] = useState<{
@@ -110,6 +114,7 @@ export default function ExperimentsPage() {
     setNewDescription('');
     setTags([]);
     setNewTag('');
+    setNameTouched(false);
     setIsCustom(false);
     setYamlFile(null);
     setYamlFile1(null);
@@ -221,12 +226,13 @@ export default function ExperimentsPage() {
 
   const fetchExperiments = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const data = await apiFetch('/experiments') as Experiment[];
       setExperiments(data);
     } catch (err) {
       console.error(err);
-      toast.error(getApiErrorMessage(err, 'Failed to load experiments'), { id: 'experiments-load' });
+      setLoadError(getApiErrorMessage(err, 'Failed to load experiments'));
       setExperiments([]);
     } finally {
       setLoading(false);
@@ -234,7 +240,9 @@ export default function ExperimentsPage() {
   };
 
   useEffect(() => {
-    fetchExperiments();
+    // Independent fetches — run in parallel
+    void Promise.all([fetchExperiments(), fetchGSFiles()]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // UI state
@@ -317,7 +325,7 @@ export default function ExperimentsPage() {
       >
         <div className="sm:mr-auto">
           <Button
-            className="bg-maroon hover:bg-maroon-hover text-white"
+            variant="primary"
             onClick={openCreateModal}
             aria-label="Create new experiment"
           >
@@ -334,7 +342,7 @@ export default function ExperimentsPage() {
             aria-label="Search projects"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-surface dark:bg-dark-surface text-light-text dark:text-dark-text placeholder:text-light-text/40 dark:placeholder:text-dark-subtext focus:outline-none focus:ring-2 focus:ring-maroon/50"
+            className="w-full pl-10 pr-4 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-surface dark:bg-dark-surface text-light-text dark:text-dark-text placeholder:text-light-text/40 dark:placeholder:text-dark-subtext focus:outline-none focus:ring-2 focus:ring-vt-maroon/50"
           />
         </div>
 
@@ -344,7 +352,7 @@ export default function ExperimentsPage() {
             value={filterGroup}
             onChange={e => setFilterGroup(e.target.value)}
             aria-label="Filter by tag"
-            className="pl-4 pr-10 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-surface dark:bg-dark-surface text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50 appearance-none"
+            className="pl-4 pr-10 py-2 rounded-btn border border-light-border dark:border-dark-border bg-light-surface dark:bg-dark-surface text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-vt-maroon/50 appearance-none"
           >
             {allGroups.map(group => (
               <option key={group} value={group}>
@@ -374,96 +382,114 @@ export default function ExperimentsPage() {
       <div className="space-y-6">
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <SkeletonStatus>Loading experiments…</SkeletonStatus>
             {Array.from({ length: 6 }).map((_, i) => (
               <ExperimentCardSkeleton key={i} />
             ))}
           </div>
+        ) : loadError ? (
+          <ErrorState
+            title="Failed to load experiments"
+            message={loadError}
+            onRetry={() => void fetchExperiments()}
+          />
         ) : filteredGroups.length > 0 ? (
           filteredGroups.map((group, idx) => (
-            <ExperimentGroup 
-              key={group.name} 
-              group={group} 
-              groupIndex={idx} 
-              onDelete={removeExperiment} 
+            <ExperimentGroup
+              key={group.name}
+              group={group}
+              groupIndex={idx}
+              onDelete={removeExperiment}
               onDuplicate={duplicateExperiment}
-              onEdit={openEditModal} 
+              onEdit={openEditModal}
             />
           ))
+        ) : experiments.length === 0 ? (
+          <EmptyState
+            icon={FlaskConical}
+            title="No experiments yet"
+            description="Create your first experiment to configure and run a constellation simulation."
+            action={
+              <Button variant="primary" onClick={openCreateModal}>
+                <Plus className="h-4 w-4 mr-2" aria-hidden="true" />
+                New Experiment
+              </Button>
+            }
+          />
         ) : (
-          <div className="text-center py-12 text-light-text/60 dark:text-dark-subtext">
-            No experiments found.
-          </div>
+          <EmptyState
+            icon={Search}
+            title="No experiments match your search"
+            description="Try a different search term or clear the filters."
+            action={
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setSearchQuery('')
+                  setFilterGroup('All')
+                }}
+              >
+                Clear search & filters
+              </Button>
+            }
+          />
         )}
       </div>
 
       {/* Modal */}
-      {showModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto"
-          onClick={() => setShowModal(false)}
-        >
-          <motion.div
-            initial={{ opacity: 0, scale: 0.96 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.1, ease: 'easeOut' }}
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-card shadow-xl p-6 bg-light-surface dark:bg-dark-surface border border-light-border dark:border-dark-border my-8"
-          >
-            <h2 className="text-2xl font-semibold mb-4 text-light-text dark:text-dark-text">
-              {editExperiment ? "Edit Experiment" : (duplicateId ? "Duplicate Experiment" : "Create New Experiment")}
-            </h2>
-
+      <Dialog open={showModal} onClose={() => setShowModal(false)}>
+        <DialogHeader>
+          <DialogTitle>
+            {editExperiment ? "Edit Experiment" : (duplicateId ? "Duplicate Experiment" : "Create New Experiment")}
+          </DialogTitle>
+        </DialogHeader>
+        <DialogBody>
             <div className="space-y-4">
-              
+
               {/* Name */}
-              <div>
-                <label className="block text-sm font-medium mb-1 text-light-text dark:text-dark-text">
-                  Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  className="w-full px-3 py-2 rounded-btn font-mono text-sm border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
-                />
-              </div>
+              <Input
+                type="text"
+                label={<>Name <span className="text-red-500" aria-hidden="true">*</span></>}
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                onBlur={() => setNameTouched(true)}
+                error={nameTouched && !newName.trim() ? 'Name is required' : undefined}
+                required
+                className="font-mono bg-light-bg dark:bg-dark-bg"
+              />
 
               {/* Description */}
-              <div>
-                <label className="block text-sm font-medium mb-1 text-light-text dark:text-dark-text">
-                  Description
-                </label>
-                <textarea
-                  rows={3}
-                  value={newDescription}
-                  onChange={(e) => setNewDescription(e.target.value)}
-                  className="w-full px-3 py-2 rounded-btn font-mono text-sm resize-none border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
-                />
-              </div>
+              <Textarea
+                label="Description"
+                rows={3}
+                value={newDescription}
+                onChange={(e) => setNewDescription(e.target.value)}
+                className="font-mono resize-none bg-light-bg dark:bg-dark-bg"
+              />
 
               {/* Tag */}
                <div>
-                <label className="block text-sm font-medium mb-1 text-light-text dark:text-dark-text">
-                  Tag
-                </label>
                 <div className="flex flex-wrap gap-2 mb-2">
                   {tags.map((tag) => (
-                    <span
+                    <button
                       key={tag}
-                      className="px-2 py-1 bg-maroon/20 text-maroon rounded-full text-sm cursor-pointer hover:bg-maroon/30 transition-colors"
+                      type="button"
+                      aria-label={`Remove tag ${tag}`}
+                      className="px-2 py-1 bg-vt-maroon/20 text-vt-maroon rounded-full text-sm cursor-pointer hover:bg-vt-maroon/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                       onClick={() => removeTag(tag)}
                     >
                       {tag} ×
-                    </span>
+                    </button>
                   ))}
                 </div>
-                <input
+                <Input
                   type="text"
+                  label="Tag"
                   value={newTag}
                   onChange={(e) => setNewTag(e.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder="Type a tag and press Enter"
-                  className="w-full px-3 py-2 rounded-btn font-mono text-sm border border-light-border dark:border-dark-border bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-maroon/50"
+                  className="font-mono bg-light-bg dark:bg-dark-bg"
                 />
               </div>
 
@@ -477,7 +503,7 @@ export default function ExperimentsPage() {
                       checked={isCustom}
                       disabled={editExperiment !== null} // Prevents changing type during edit
                       onChange={(e) => setIsCustom(e.target.checked)}
-                      className="h-4 w-4 rounded border-light-border text-maroon focus:ring-maroon cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="h-4 w-4 rounded border-light-border text-vt-maroon focus:ring-vt-maroon cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     />
                     <label htmlFor="isCustomToggle" className="text-sm font-medium text-light-text dark:text-dark-text cursor-pointer">
                       Custom Experiment (upload YAML/ZIP)
@@ -518,7 +544,7 @@ export default function ExperimentsPage() {
                                     setYamlFile(e.target.files?.[0] || null);
                                   }}
                                 />
-                                <div className={`flex items-center justify-center w-full px-4 py-2.5 border border-dashed rounded-btn transition-colors ${yamlFile ? 'border-maroon bg-maroon/5 text-maroon' : 'border-light-border dark:border-dark-border hover:border-maroon hover:bg-maroon/5 text-light-text dark:text-dark-text'}`}>
+                                <div className={`flex items-center justify-center w-full px-4 py-2.5 border border-dashed rounded-btn transition-colors ${yamlFile ? 'border-vt-maroon bg-vt-maroon/5 text-vt-maroon' : 'border-light-border dark:border-dark-border hover:border-vt-maroon hover:bg-vt-maroon/5 text-light-text dark:text-dark-text'}`}>
                                   <Upload className="w-4 h-4 mr-2" />
                                   <span className="text-sm font-medium truncate">
                                     {yamlFile ? yamlFile.name : 'Upload Main YAML'}
@@ -564,7 +590,7 @@ export default function ExperimentsPage() {
                                     setYamlFile1(e.target.files?.[0] || null);
                                   }}
                                 />
-                                <div className={`flex items-center justify-center w-full px-4 py-2.5 border border-dashed rounded-btn transition-colors ${yamlFile1 ? 'border-maroon bg-maroon/5 text-maroon' : 'border-light-border dark:border-dark-border hover:border-maroon hover:bg-maroon/5 text-light-text dark:text-dark-text'}`}>
+                                <div className={`flex items-center justify-center w-full px-4 py-2.5 border border-dashed rounded-btn transition-colors ${yamlFile1 ? 'border-vt-maroon bg-vt-maroon/5 text-vt-maroon' : 'border-light-border dark:border-dark-border hover:border-vt-maroon hover:bg-vt-maroon/5 text-light-text dark:text-dark-text'}`}>
                                   <Upload className="w-4 h-4 mr-2" />
                                   <span className="text-sm font-medium truncate">
                                     {yamlFile1 ? yamlFile1.name : 'Upload SAT YAML'}
@@ -624,7 +650,7 @@ export default function ExperimentsPage() {
                                     setDeleteMN(false);
                                   }}
                                 />
-                                <div className={`flex items-center justify-center w-full px-4 py-2.5 border border-dashed rounded-btn transition-colors ${yamlFile2 ? 'border-maroon bg-maroon/5 text-maroon' : 'border-light-border dark:border-dark-border hover:border-maroon hover:bg-maroon/5 text-light-text dark:text-dark-text'}`}>
+                                <div className={`flex items-center justify-center w-full px-4 py-2.5 border border-dashed rounded-btn transition-colors ${yamlFile2 ? 'border-vt-maroon bg-vt-maroon/5 text-vt-maroon' : 'border-light-border dark:border-dark-border hover:border-vt-maroon hover:bg-vt-maroon/5 text-light-text dark:text-dark-text'}`}>
                                   <Upload className="w-4 h-4 mr-2" />
                                   <span className="text-sm font-medium truncate">
                                     {yamlFile2 ? yamlFile2.name : 'Upload Mininet YAML'}
@@ -671,7 +697,7 @@ export default function ExperimentsPage() {
                                   }
                                 }}
                               />
-                              <div className={`flex items-center justify-center w-full px-4 py-2.5 border border-dashed rounded-btn transition-colors ${zipFile ? 'border-maroon bg-maroon/5 text-maroon' : 'border-light-border dark:border-dark-border hover:border-maroon hover:bg-maroon/5 text-light-text dark:text-dark-text'}`}>
+                              <div className={`flex items-center justify-center w-full px-4 py-2.5 border border-dashed rounded-btn transition-colors ${zipFile ? 'border-vt-maroon bg-vt-maroon/5 text-vt-maroon' : 'border-light-border dark:border-dark-border hover:border-vt-maroon hover:bg-vt-maroon/5 text-light-text dark:text-dark-text'}`}>
                                 <Upload className="w-4 h-4 mr-2" />
                                 <span className="text-sm font-medium truncate">
                                   {zipFile ? zipFile.name : 'Upload .zip Archive'}
@@ -697,18 +723,18 @@ export default function ExperimentsPage() {
               )}
             </div>
 
-            {/* Buttons */}
-            <div className="flex justify-end gap-2 mt-6 pt-4 border-t border-light-border dark:border-dark-border">
+        </DialogBody>
+        {/* Buttons */}
+        <DialogFooter className="border-t border-light-border dark:border-dark-border pt-4">
               <Button
-                variant="outline"
+                variant="secondary"
                 onClick={() => setShowModal(false)}
-                className="border-light-border dark:border-dark-border text-light-text dark:text-dark-text"
               >
                 Cancel
               </Button>
 
               <Button
-                className="bg-maroon hover:bg-maroon-hover text-white"
+                variant="primary"
                 disabled={creating || !newName.trim()}
                 onClick={async () => {
                   setCreating(true);
@@ -780,12 +806,20 @@ export default function ExperimentsPage() {
 
                     const wasCustom = isCustom; 
                     const wasEdit = !!editExperiment;
+                    const wasDuplicate = duplicateId !== null;
                     
                     resetForm();
                     setShowModal(false);
                     
                     if (!wasEdit && !wasCustom)  {
-                      router.push(`/experiments/${expId}/edit`);
+                      // Fresh creates land on edit with ?new=true so default
+                      // shell fields can show as placeholders. Duplicates keep
+                      // the copied values visible as normal pre-filled numbers.
+                      router.push(
+                        wasDuplicate
+                          ? `/experiments/${expId}/edit`
+                          : `/experiments/${expId}/edit?new=true`
+                      );
                     } else {
                       await fetchExperiments();
                     }
@@ -799,10 +833,8 @@ export default function ExperimentsPage() {
               >
                 {creating ? (editExperiment ? "Saving..." : "Creating...") : (editExperiment ? "Save" : "Create")}
               </Button>
-            </div>
-          </motion.div>
-        </div>
-      )}
+        </DialogFooter>
+      </Dialog>
 
       <DocsDrawer open={docsOpen} onClose={() => setDocsOpen(false)} />
 
