@@ -44,7 +44,7 @@ export function ExperimentEditFooter({
             disabled={saving || savingAndRunning}
           >
             <Play className="h-4 w-4 mr-2" aria-hidden="true" />
-            {savingAndRunning ? 'Saving...' : 'Save & Run Simulation'}
+            {savingAndRunning ? 'Saving...' : 'Save & Open Pipeline'}
           </Button>
         </div>
       </div>

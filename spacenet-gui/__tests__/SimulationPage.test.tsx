@@ -12,12 +12,14 @@ jest.mock('sonner', () => ({ toast: { success: jest.fn(), error: jest.fn(), info
 const mockApi = jest.mocked(apiFetch)
 let jobs: Array<{ job_id: string; status: string }> = []
 let phase1 = true
+let phase2 = false
 
 beforeEach(() => {
   jest.resetAllMocks()
   jest.mocked(useJobPolling).mockReset()
   jobs = []
   phase1 = true
+  phase2 = false
   URL.createObjectURL = jest.fn(() => 'blob:test')
   URL.revokeObjectURL = jest.fn()
   global.fetch = jest.fn(async (url) => ({
@@ -29,7 +31,7 @@ beforeEach(() => {
     if (path === '/jobs') return jobs
     if (path.endsWith('/sat')) return { Sim_Length: { TimeStepCount: 3, TimeStepDuration: 10 }, shells: { starlink: {} } }
     if (path.endsWith('/has-phase-1')) return { data: phase1 }
-    if (path.endsWith('/has-phase-2')) return { data: false }
+    if (path.endsWith('/has-phase-2')) return { data: phase2 }
     if (path.endsWith('/create-gif')) return { job_id: JSON.parse(options!.body as string).gif_name }
     if (path.endsWith('/phase-1')) return { job_id: 'phase1' }
     if (path.endsWith('/logs')) return { logs: 'FileNotFoundError: missing required TLE file' }
@@ -155,6 +157,62 @@ it('ignores an old visualization poll arriving after cancellation and retry', as
   jobs = [{ job_id: 'replacement', status: 'finished' }]
   await poll(1)
   expect(await screen.findByTitle('Visualization output')).toBeInTheDocument()
+})
+
+it('shows the override dialog before running Phase 1 when Phase 2 output exists but Phase 1 does not', async () => {
+  phase1 = false
+  phase2 = true
+  render(<SimulationPage />)
+  const runButton = await screen.findByRole('button', { name: 'Run Phase 1' })
+
+  fireEvent.click(runButton)
+  expect(await screen.findByText(
+    'Phase 2 output already exists for this experiment. Running Phase 1 will discard it and start a fresh run. Are you sure you want to continue?'
+  )).toBeInTheDocument()
+  expect(mockApi.mock.calls.filter(([path]) => path.endsWith('/phase-1'))).toHaveLength(0)
+
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+  expect(screen.queryByText(/Running Phase 1 will discard it/)).not.toBeInTheDocument()
+  expect(mockApi.mock.calls.filter(([path]) => path.endsWith('/phase-1'))).toHaveLength(0)
+
+  fireEvent.click(screen.getByRole('button', { name: 'Run Phase 1' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'Override' }))
+  await waitFor(() => expect(mockApi.mock.calls.filter(([path]) => path.endsWith('/phase-1'))).toHaveLength(1))
+})
+
+it('names both phases in the override dialog when Phase 1 and Phase 2 output both exist', async () => {
+  phase1 = true
+  phase2 = true
+  render(<SimulationPage />)
+  const runButton = await screen.findByRole('button', { name: 'Run Phase 1' })
+
+  fireEvent.click(runButton)
+  expect(await screen.findByText(
+    'Phase 1 and Phase 2 output already exist for this experiment. Running Phase 1 will discard it and start a fresh run. Are you sure you want to continue?'
+  )).toBeInTheDocument()
+})
+
+it('names only Phase 1 in the override dialog when Phase 2 output does not exist', async () => {
+  phase1 = true
+  phase2 = false
+  render(<SimulationPage />)
+  const runButton = await screen.findByRole('button', { name: 'Run Phase 1' })
+
+  fireEvent.click(runButton)
+  expect(await screen.findByText(
+    'Phase 1 output already exists for this experiment. Running Phase 1 will discard it and start a fresh run. Are you sure you want to continue?'
+  )).toBeInTheDocument()
+})
+
+it('starts Phase 1 immediately with no dialog when neither phase has output', async () => {
+  phase1 = false
+  phase2 = false
+  render(<SimulationPage />)
+  const runButton = await screen.findByRole('button', { name: 'Run Phase 1' })
+
+  fireEvent.click(runButton)
+  await waitFor(() => expect(mockApi.mock.calls.filter(([path]) => path.endsWith('/phase-1'))).toHaveLength(1))
+  expect(screen.queryByText('Override Existing Output')).not.toBeInTheDocument()
 })
 
 describe('Phase 1 with the real polling hook', () => {

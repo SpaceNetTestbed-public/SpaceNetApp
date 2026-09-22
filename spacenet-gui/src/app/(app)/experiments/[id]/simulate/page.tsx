@@ -849,7 +849,7 @@ export default function SimulationPage() {
 
   /* ----------------------------- Phase runs ----------------------------- */
   const runPhase = async (phase:1|2) => {
-    const existing = phase === 1 ? hasPhase1 : hasPhase2
+    const existing = phase === 1 ? (hasPhase1 || hasPhase2) : hasPhase2
     if (existing) {
       setPhaseOverrideConfirm(phase)
       return
@@ -984,6 +984,14 @@ export default function SimulationPage() {
     }
   }
 
+  // First sentence of the override dialog — names exactly which phase(s)
+  // currently have output, per the has-phase-1 / has-phase-2 state.
+  const existingOutputSentence = hasPhase1 && hasPhase2
+    ? 'Phase 1 and Phase 2 output already exist'
+    : hasPhase1
+      ? 'Phase 1 output already exists'
+      : 'Phase 2 output already exists'
+
   /* ----------------------------- Render ----------------------------- */
   return (
     <div className="min-h-screen p-6 sm:p-8 space-y-8">
@@ -1093,9 +1101,13 @@ export default function SimulationPage() {
 
       <ConfirmDialog
         isOpen={phaseOverrideConfirm !== null}
-        title="Override Existing Output"
-        message={`Phase ${phaseOverrideConfirm} output already exists. Are you sure you want to override the old generation?`}
-        confirmLabel="Override"
+        title={phaseOverrideConfirm === 2 ? 'Phase 2 Output Exists' : 'Override Existing Output'}
+        message={
+          phaseOverrideConfirm === 1
+            ? `${existingOutputSentence} for this experiment. Running Phase 1 will discard it and start a fresh run. Are you sure you want to continue?`
+            : 'Phase 2 output already exists. New results will be added alongside it, and only files with the same name will be replaced. Continue?'
+        }
+        confirmLabel={phaseOverrideConfirm === 2 ? 'Run Phase 2' : 'Override'}
         cancelLabel="Cancel"
         variant="warning"
         onConfirm={() => phaseOverrideConfirm && executePhase(phaseOverrideConfirm)}

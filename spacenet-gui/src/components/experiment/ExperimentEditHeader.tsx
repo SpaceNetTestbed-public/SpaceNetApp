@@ -64,7 +64,7 @@ export function ExperimentEditHeader({
           disabled={saving || savingAndRunning}
         >
           <Play className="h-4 w-4 mr-2" aria-hidden="true" />
-          {savingAndRunning ? 'Saving...' : 'Save & Run Simulation'}
+          {savingAndRunning ? 'Saving...' : 'Save & Open Pipeline'}
         </Button>
         <Link href="/experiments" aria-label="Back to experiments">
           <Button variant="ghost" size="sm" className="h-9 w-9 p-0" aria-label="Back to experiments">
