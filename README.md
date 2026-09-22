@@ -23,7 +23,7 @@ Run these commands in order:
 
 ```bash
 # 1. Clone this repo
-git clone -b yoshwan-dev https://github.com/VTSpaceNetLab/VTSpaceNetApp.git
+git clone https://github.com/VTSpaceNetLab/VTSpaceNetApp.git
 cd VTSpaceNetApp
 
 # 2. Initialize submodules (Phase 1 + Phase 2 simulation engines)
