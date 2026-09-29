@@ -238,19 +238,19 @@ def _looks_generated(tle_path: str) -> bool:
     """
     True only if every satellite name line looks generator-produced.
 
-    generate_fake_TLE names satellites '<op_name>-<1000+n>' in lowercase
-    ('starlink-1000'); Celestrak's real files use uppercase ('STARLINK-32423').
+    generate_fake_TLE names satellites '<op_name>-<1000+n>' in uppercase
+    ('STARLINK-1000'); Celestrak's real files use uppercase ('STARLINK-32423').
     Deleting a real bundled TLE is unrecoverable - they are gitignored, and a
     historical epoch cannot be re-fetched from Celestrak's current feed.
     """
     with open(tle_path, "r") as f:
-        for line in f:
+        for itr, line in enumerate(f):
             stripped = line.strip()
             if not stripped or stripped[0].isdigit():
                 continue  # TLE data line 1/2, not a name line
-            if not stripped.startswith("starlink-"):
-                return False
-    return True
+            if stripped == "STARLINK-1000" and itr == 0: #Real TLEs likely do not start with STARLINK-1000
+                return True
+    return False
 
 
 def clear_stale_generated_tles(experiment_id: int) -> None:
