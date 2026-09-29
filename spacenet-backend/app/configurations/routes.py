@@ -7,6 +7,7 @@ from app.configurations.create_config import GROUND_STATION_FILE, TLE_FILE_PATH
 from app.experiments.services import ensure_experiment_folder_and_defaults
 from app.configurations.services import create_sat_config_wrapper, create_main_config_wrapper, create_main_mn_config_wrapper
 import os
+import re
 from datetime import datetime
 import shutil
 import io
@@ -23,6 +24,18 @@ bp = Blueprint("configurations", __name__, url_prefix="")
 SAT_FILE = 'sat_config.yaml'
 MAIN_FILE = 'main_config.yaml'
 MAIN_MN_FILE = 'main_mn_config.yaml'
+
+def _valid_path_name(value: object) -> bool:
+    return (
+        isinstance(value, str)
+        and re.fullmatch(r"^[A-Za-z0-9_-]{1,64}$", value) is not None
+    )
+
+
+def _is_within_directory(path: str, parent: str) -> bool:
+    parent = os.path.realpath(parent)
+    return os.path.commonpath((parent, os.path.realpath(path))) == parent
+
 
 @bp.put("/experiments/<int:experiment_id>/sat")
 def update_sat(experiment_id):
@@ -99,6 +112,9 @@ def update_sat(experiment_id):
         return jsonify({"error": "Experiment not found"}), 404
 
     data = request.get_json() or {}
+    operator_name = data.get("operator_name") if isinstance(data, dict) else None
+    if not _valid_path_name(operator_name):
+        return jsonify({"error": "Invalid operator_name"}), 400
 
     try:
       # This will raise ValueError if the date/time is invalid
@@ -133,6 +149,12 @@ def update_sat(experiment_id):
 
       dest_folder = f"local_workspace/{experiment.id}/"
       dest_file = dest_folder + f"{data['operator_name']}_tles/{data['operator_name']}_{str(int(dt.timestamp()))}"
+      tle_folder = dest_folder + f"{operator_name}_tles/"
+      if not all(
+          _is_within_directory(path, dest_folder)
+          for path in (tle_folder, dest_file)
+      ):
+          return jsonify({"error": "Invalid operator_name"}), 400
 
       if os.path.exists(dest_folder + f"{data['operator_name']}_tles/"):
         shutil.rmtree(dest_folder + f"{data['operator_name']}_tles/")
