@@ -47,7 +47,7 @@ sudo ../env/bin/python3 run.py
 ```
 The reason sudo is needed is because the constellation simulator needs sudo access to run certain scripts.
 
-If you want to view the available routes, you can go to `localhost:5000/apidocs` where you can see Swagger documentation listing routes and you are able to do testing on them. If you want to login, copy the access token after posting the login endpoint and press `Authorize` and type in `Bearer <access token here>`.
+If you want to view the available routes, you can go to `localhost:5000/apidocs` where you can see Swagger documentation listing routes and you are able to do testing on them. The API has no built-in authentication and is intended for local or trusted-network use only. Setting `ENABLE_TUNNEL=1` when using `run-dev.sh` or `run-prod.sh` exposes it to the public internet at your own risk.
 
 ### Scripts
 The `run-dev.sh` is a script for running all the workers together so you don't have to open new terminals

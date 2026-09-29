@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -e
 
+PID_CLOUDFLARE=""
+
 timestamp() {
   date '+%Y-%m-%d %H:%M:%S'
 }
@@ -40,9 +42,13 @@ PID_DEFAULT=$!
 PID_PLOT=$!
 
 # For public dev server link
-(
-  cloudflared tunnel --url http://localhost:5000 2>&1 | prefix CLOUDFLARE 31;1
-) &
-PID_CLOUDFLARE=$!
+if [[ "${ENABLE_TUNNEL:-}" == "1" ]]; then
+  (
+    cloudflared tunnel --url http://localhost:5000 2>&1 | prefix CLOUDFLARE 31;1
+  ) &
+  PID_CLOUDFLARE=$!
+else
+  echo "$(timestamp) App is running locally-only (Cloudflare tunnel disabled)."
+fi
 
 wait
