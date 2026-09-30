@@ -276,7 +276,7 @@ export function SatConfigForm({ config, onChange, tleLocked = false, isNew = fal
               </label>
               <p className="text-xs text-light-text/60 dark:text-dark-subtext">
                 {config.tle_id !== -1
-                  ? 'Unavailable while a custom TLE file is selected — Phase 1 uses the uploaded file.'
+                  ? 'Unavailable while an external TLE file is selected.'
                   : tleLocked
                     ? 'Locked because this experiment has already been run.'
                     : 'Generate synthetic TLEs from the shell configuration below instead of loading a TLE file.'}
@@ -332,8 +332,8 @@ export function SatConfigForm({ config, onChange, tleLocked = false, isNew = fal
           {config.generate_TLE === false && config.tle_id !== -1 && (
             <p className="text-[11px] text-amber-600 dark:text-amber-400 flex items-start gap-1 font-medium" role="status">
               <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" aria-hidden="true" />
-              TLE generation is disabled for this experiment — Phase 1 will load a real
-              TLE file instead of generating orbits from the shells below. If the TLE
+              TLE generation is now disabled for this setting — Phase 1 will either load a given external
+              TLE file or find a real TLE from SpaceNet database. If the TLE
               file&apos;s satellite count doesn&apos;t match the shell configuration, the run
               will fail.
             </p>
