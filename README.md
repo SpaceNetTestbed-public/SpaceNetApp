@@ -99,8 +99,8 @@ experiment.
 
 - External TLEs can be imported to the app using the TLE page however it is expected to contain exactly the number fo satellites that are of interest for the experiment. This is a possible cause of `index out of range` errors if encountered.
 - Current App version only supports multi-shell scenario for starting epoch at 27th Sept 2024 00:00:00 +-10 days, starlink operator and supporting only 2 shells (low incl and high incl Walker Delta). Please find the multi-shell specs below:
-![Shell1](img/image.png)
-![Shell2](img/image-1.png)
+![Shell1](img/shell1.png)
+![Shell2](img/shell2.png)
 - Phase2 ping and iPerf results highly depend on the system's computing cores as well as the experiment setup. Therefore for a specific desired contellation spec if certain source-detination pair given `destination net unreachable` error, try using a different source-destination pair.
 
 ## Common Issues
