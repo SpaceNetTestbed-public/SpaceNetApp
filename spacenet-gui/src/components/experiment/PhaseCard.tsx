@@ -210,6 +210,11 @@ export function PhaseCard({
         {showGifButton && onViewGif && (
           <Button variant="primary" onClick={onViewGif}>View GIF</Button>
         )}
+        {showGifButton && phase === 1 && onCreateAniGif && (
+          <Button variant="secondary" size="sm" onClick={onCreateAniGif}>
+            <Play className="h-4 w-4 mr-2" aria-hidden="true" />Regenerate GIF
+          </Button>
+        )}
         {hasOutput && (
           <Button variant="secondary" onClick={onDownload} aria-label={`Download Phase ${phase} output`}>
             <Download className="h-4 w-4 mr-2" aria-hidden="true" />

@@ -16,7 +16,7 @@ import { VisualizationPanel } from '@/components/experiment/VisualizationPanel'
 import { LogsModal } from '@/components/experiment/LogsModal'
 import { GifModal } from '@/components/experiment/GifModal'
 
-const SHELL_COLORS = ['green', 'red', 'blue', 'orange', 'purple', 'cyan', 'yellow', 'pink', 'white', 'gray']
+const SHELL_COLORS = ['green', 'red', 'blue', 'orange', 'purple', 'cyan', 'yellow', 'pink', 'white', 'gray', 'lime']
 
 interface PhaseStartResponse {
   job_id?: string
