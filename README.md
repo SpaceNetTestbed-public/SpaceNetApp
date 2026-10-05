@@ -123,6 +123,11 @@ and wait for it to fully start before running `docker compose` commands.
 
 **Database errors:**
 
+To inspect the database directly, open a `psql` shell in the database container:
+```bash
+docker exec -it spacenet-db psql -U spacenet_user -d spacenet_db
+```
+
 ### Restarting the app (keeps your data)
 
 ```bash
