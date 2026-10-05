@@ -159,5 +159,10 @@ VTSpaceNetApp/
 - **Simulation:** Skyfield (SGP4), NetworkX (Floyd-Warshall)
 - **Emulation:** Mininet v2.3.0
 
+## License
+
+This repository is licensed under the GNU General Public License v3.0 only
+(GPL-3.0-only). See [LICENSE](LICENSE) for the full text.
+
 ---
 Virginia Tech, Aerospace & Ocean Engineering | Dr. Samantha Parry Kenyon
