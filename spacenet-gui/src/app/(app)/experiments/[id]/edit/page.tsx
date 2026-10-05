@@ -224,7 +224,6 @@ export default function EditExperimentPage() {
           <SatConfigForm
             config={config.satConfig}
             onChange={(satConfig) => updateConfig({ satConfig })}
-            tleLocked={config.hasBeenRun || false}
             isNew={isFreshCreate}
           />
         </TabsContent>

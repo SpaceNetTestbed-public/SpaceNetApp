@@ -85,7 +85,7 @@ export interface ExperimentConfig {
   // Metadata
   id?: string
   isNew?: boolean
-  hasBeenRun?: boolean // Used to lock TLE generation toggle
+  hasBeenRun?: boolean // Shows the "already been run" warning on the edit page
 }
 
 export const defaultSatConfig: SatConfig = {
