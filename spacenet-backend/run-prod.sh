@@ -48,9 +48,13 @@ $VENV/rq worker plot \
 # =========================
 # Cloudflare Tunnel
 # =========================
-cloudflared tunnel \
-  --url http://localhost:$API_PORT \
-  2>&1 | prefix CLOUDFLARE 31;1 &
+if [[ "${ENABLE_TUNNEL:-}" == "1" ]]; then
+  cloudflared tunnel \
+    --url http://localhost:$API_PORT \
+    2>&1 | prefix CLOUDFLARE 31;1 &
+else
+  echo "$(timestamp) App is running locally-only (Cloudflare tunnel disabled)."
+fi
 
 # =========================
 # Wait for all background jobs

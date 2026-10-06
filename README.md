@@ -26,8 +26,29 @@ cd VTSpaceNetApp
 
 # 2. Initialize submodules (Phase 1 + Phase 2 simulation engines)
 git submodule update --init --recursive
+```
 
-# 3. Build and start all containers
+3. Create your local environment files from the templates. The root `.env`
+   holds the database settings used by Docker Compose; `spacenet-gui/.env`
+   tells the browser where the backend API is (`NEXT_PUBLIC_API_URL`).
+
+   bash (Linux, macOS, Git Bash, WSL):
+   ```bash
+   cp .env.example .env
+   cp spacenet-gui/.env.example spacenet-gui/.env
+   ```
+
+   PowerShell (Windows):
+   ```powershell
+   Copy-Item .env.example .env
+   Copy-Item spacenet-gui\.env.example spacenet-gui\.env
+   ```
+
+   The defaults work for a local, single-user setup. Change the database
+   credentials in `.env` for anything beyond that.
+
+```bash
+# 4. Build and start all containers
 docker compose up --build
 ```
 
@@ -123,6 +144,11 @@ and wait for it to fully start before running `docker compose` commands.
 
 **Database errors:**
 
+To inspect the database directly, open a `psql` shell in the database container:
+```bash
+docker exec -it spacenet-db psql -U spacenet_user -d spacenet_db
+```
+
 ### Restarting the app (keeps your data)
 
 ```bash
@@ -145,7 +171,7 @@ orbit: 6, TimeStepCount: 3.
 ```
 VTSpaceNetApp/
 ├── docker-compose.yml              # All container definitions
-├── .env                             # Database credentials
+├── .env.example                     # Template for .env (database credentials)
 ├── spacenet-gui/                    # Frontend (Next.js) - part of main repo
 └── spacenet-backend/                 # Backend (Flask + workers)
     ├── dynamic-topology-generator/   # Submodule → VTSpaceNetPhase1 (orbit sim)
@@ -158,6 +184,11 @@ VTSpaceNetApp/
 - **Backend:** Flask (Python), PostgreSQL, Redis, RQ workers
 - **Simulation:** Skyfield (SGP4), NetworkX (Floyd-Warshall)
 - **Emulation:** Mininet v2.3.0
+
+## License
+
+This repository is licensed under the GNU General Public License v3.0 only
+(GPL-3.0-only). See [LICENSE](LICENSE) for the full text.
 
 ---
 Virginia Tech, Aerospace & Ocean Engineering | Dr. Samantha Parry Kenyon

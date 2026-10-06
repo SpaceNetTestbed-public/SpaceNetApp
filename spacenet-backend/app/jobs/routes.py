@@ -17,6 +17,7 @@ import time
 from matplotlib.colors import is_color_like
 import yaml
 import os
+import re
 import shutil
 
 from app.models.experiment import Experiment
@@ -29,6 +30,18 @@ TERMINAL_JOB_LIMIT = 50
 # Statuses eligible for history deletion. 'stopped' is what RQ assigns after
 # a kill-horse cancel of a running job, and it lands in FailedJobRegistry.
 TERMINAL_JOB_STATUSES = {"finished", "failed", "canceled", "stopped"}
+
+def _valid_path_name(value: object) -> bool:
+    return (
+        isinstance(value, str)
+        and re.fullmatch(r"^[A-Za-z0-9_-]{1,64}$", value) is not None
+    )
+
+
+def _is_within_directory(path: str, parent: str) -> bool:
+    parent = os.path.realpath(parent)
+    return os.path.commonpath((parent, os.path.realpath(path))) == parent
+
 
 # way to queue a task
 # way to access whats in your queue (including the one that is running)
@@ -223,6 +236,10 @@ def create_gif(experiment_id):
         description: experiment not found
     """
     data = request.get_json() or {}
+    gif_name = data.get("gif_name") if isinstance(data, dict) else None
+    if not _valid_path_name(gif_name):
+        return jsonify({"error": "Invalid gif_name"}), 400
+
     experiment = Experiment.query.filter_by(id=experiment_id).first()
 
     if not experiment:
@@ -249,6 +266,13 @@ def create_gif(experiment_id):
 
     zip = f'local_workspace/{experiment_id}/gifs/{data["gif_name"]}.zip'
     folder = f'local_workspace/{experiment_id}/gifs/{data["gif_name"]}'
+    gif_config_path = f"{folder}/gif_config.yaml"
+    experiment_dir = f"local_workspace/{experiment_id}/"
+    if not all(
+        _is_within_directory(path, experiment_dir)
+        for path in (zip, folder, gif_config_path)
+    ):
+        return jsonify({"error": "Invalid gif_name"}), 400
     if os.path.isfile(zip):
         os.remove(zip)
     if os.path.isdir(folder):
