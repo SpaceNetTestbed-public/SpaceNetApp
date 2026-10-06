@@ -1,4 +1,5 @@
 import os
+import re
 from flask import Blueprint, jsonify, request, abort, send_file, current_app
 from app.db import get_db
 from app.experiments.services import ensure_experiment_folder_and_defaults, delete_experiment_folder, rename_experiment_folder
@@ -10,6 +11,18 @@ import shutil
 from app.models.experiment import Experiment
 
 bp = Blueprint("gifs", __name__, url_prefix="")
+
+def _valid_path_name(value: object) -> bool:
+    return (
+        isinstance(value, str)
+        and re.fullmatch(r"^[A-Za-z0-9_-]{1,64}$", value) is not None
+    )
+
+
+def _is_within_directory(path: str, parent: str) -> bool:
+    parent = os.path.realpath(parent)
+    return os.path.commonpath((parent, os.path.realpath(path))) == parent
+
 
 @bp.get("/experiments/<int:experiment_id>/gifs")
 def get_gifs(experiment_id):
@@ -72,6 +85,9 @@ def get_gif_config(experiment_id, gif_name):
       404:
         description: not found
     """
+    if not _valid_path_name(gif_name):
+        return jsonify({"error": "Invalid gif_name"}), 400
+
     experiment = Experiment.query.filter_by(id=experiment_id).first()
 
     if not experiment:
@@ -80,6 +96,12 @@ def get_gif_config(experiment_id, gif_name):
     # Path like: users/USERNAME/experimentName/gifs/gif_name/config.yaml
     base_path = f"local_workspace/{experiment.id}/gifs/{gif_name}"
     yaml_path = os.path.join(base_path, "gif_config.yaml")
+    experiment_dir = f"local_workspace/{experiment.id}/"
+    if not all(
+        _is_within_directory(path, experiment_dir)
+        for path in (base_path, yaml_path)
+    ):
+        return jsonify({"error": "Invalid gif_name"}), 400
 
     # Check directory
     if not os.path.isdir(base_path):
@@ -133,6 +155,9 @@ def view_gif(experiment_id, gif_name):
       500:
         description: Server error
     """
+    if not _valid_path_name(gif_name):
+        return jsonify({"error": "Invalid gif_name"}), 400
+
     experiment = Experiment.query.filter_by(id=experiment_id).first()
 
     if not experiment:
@@ -144,6 +169,12 @@ def view_gif(experiment_id, gif_name):
     # File paths
     gif_file = os.path.join(gif_dir, "output_gif.gif")
     html_file = os.path.join(gif_dir, "interactive_plot.html")
+    experiment_dir = f"local_workspace/{experiment.id}/"
+    if not all(
+        _is_within_directory(path, experiment_dir)
+        for path in (gif_dir, gif_file, html_file)
+    ):
+        return jsonify({"error": "Invalid gif_name"}), 400
 
     try:
         # Prefer HTML if it exists
@@ -203,6 +234,9 @@ def download_gif_folder(experiment_id, gif_name):
       500:
         description: Server error
     """
+    if not _valid_path_name(gif_name):
+        return jsonify({"error": "Invalid gif_name"}), 400
+
     experiment = Experiment.query.filter_by(id=experiment_id).first()
 
     if not experiment:
@@ -211,6 +245,9 @@ def download_gif_folder(experiment_id, gif_name):
     # Locate GIF directory
     gif_dir = f"local_workspace/{experiment.id}/gifs/"
     gif_zip = os.path.join(gif_dir, f"{gif_name}.zip")
+    experiment_dir = f"local_workspace/{experiment.id}/"
+    if not _is_within_directory(gif_zip, experiment_dir):
+        return jsonify({"error": "Invalid gif_name"}), 400
 
     if not os.path.exists(gif_zip):
         return jsonify({"error": "GIF output not found"}), 404
@@ -268,17 +305,25 @@ def delete_gif(experiment_id, gif_name):
       500:
         description: Server error
     """
+    if not _valid_path_name(gif_name):
+        return jsonify({"error": "Invalid gif_name"}), 400
+
     experiment = Experiment.query.filter_by(id=experiment_id).first()
+    if experiment is None:
+        return jsonify({"error": "Experiment not found"}), 404
 
     # Build GIF directory path
     gif_dir = f"local_workspace/{experiment.id}/gifs/{gif_name}/"
     gif_zip = f"local_workspace/{experiment.id}/gifs/{gif_name}.zip"
+    experiment_dir = f"local_workspace/{experiment.id}/"
+    if not all(
+        _is_within_directory(path, experiment_dir)
+        for path in (gif_dir, gif_zip)
+    ):
+        return jsonify({"error": "Invalid gif_name"}), 400
 
     if os.path.exists(gif_zip):
         os.remove(gif_zip)
-
-    if experiment is None:
-        return jsonify({"error": "Experiment not found"}), 404
 
     if not os.path.isdir(gif_dir):
         return jsonify({"error": "GIF directory not found"}), 404

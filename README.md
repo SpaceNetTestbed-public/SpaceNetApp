@@ -4,6 +4,22 @@ SpaceNet is a LEO satellite constellation simulation and emulation platform
 developed at Virginia Tech by the Space Instrumentation and Systems Lab under the direction of Professor Samantha Kenyon. It simulates real-world and custom generated
 satellite constellations, generates network topology and routing tables, and emulates network performance using Mininet.
 
+## Table of contents
+
+- [Prerequisites](#prerequisites)
+- [First Time Step](#first-time-setup)
+- [Access the App](#access-the-app)
+- [Daily Usage](#daily-usage)
+- [Rebuilding the App](#rebuilding-the-app)
+- [Reset the App](#reset-the-app)
+- [Running a simulation](#running-a-simulation)
+    - [Current Simulation Limitations](#current-simulation-limitations)
+- [Common Issues](#common-issues)
+- [What each container does](#what-each-container-does)
+- [Repository Structure](#repository-structure)
+- [Tech Stack](#tech-stack)
+- [License](#license)
+
 ## Prerequisites
 
 - [Git](https://git-scm.com/install/) installed.
@@ -17,21 +33,39 @@ satellite constellations, generates network topology and routing tables, and emu
 
 ## First-Time Setup
 
-Run these commands in order:
+Run the following commands in order:
 
+1. Clone this repo
 ```bash
-# 1. Clone this repo
 git clone https://github.com/VTSpaceNetLab/VTSpaceNetApp.git
 cd VTSpaceNetApp
-
-# 2. Initialize submodules (Phase 1 + Phase 2 simulation engines)
-git submodule update --init --recursive
-
-# 3. Build and start all containers
-docker compose up --build
 ```
 
-The first build takes 5-10 minutes. Subsequent starts are much faster.
+2. Initialize submodules (Phase 1 + Phase 2 simulation engines)
+```bash
+git submodule update --init --recursive
+```
+
+3. Creates your local environment files from the default templates. The root `.env` is required too hold the local database settings and the `spacenet-gui/.env` points to the backend API URL local to the system.
+
+    bash (Linux, macOS, Git Bash, WSL):
+    ```bash
+    cp .env.example .env
+    cp spacenet-gui/.env.example spacenet-gui/.env
+    ```
+
+    PowerShell (Windows):
+    ```powershell
+    Copy-Item .env.example .env
+    Copy-Item spacenet-gui\.env.example spacenet-gui\.env
+    ``` 
+
+    > NOTE: Users are strongly advised to change the Postgres credentials in `.env` before moving to the next step. This credential would always be verified by SpaceNet processes whenever the app restarts further in the future. A system can only have one Postgres database volume and ONLY ACCESSIBLE to the set user credentials!
+
+4. Build and start all the containers. (First-time build can take some time.)
+```bash
+docker compose up --build
+```
 
 ## Access the App
 
@@ -54,32 +88,22 @@ docker compose up
 docker compose down
 ```
 
-### Restarting the app (keeps your data)
+### Rebuilding the App
 
+To docker build your own version of app without erasing your experiment data: 
 ```bash
 docker compose down
 docker compose up --build
 ```
 
-### Full reset - permanently deletes all experiments, TLEs, and ground stations from the database (your `local_workspace/` files are NOT affected, but they will no longer show up in the app)
+### Reset the App
 
+To factory reset the app (deleting all external TLEs and ground station files) while making your past experiments inaccessible via App.
 ```bash
 docker compose down -v
 docker compose up --build
 ```
-
-## What Each Container Does
-
-| Container | Purpose |
-|---|---|
-| spacenet-gui | Next.js frontend (port 3000) |
-| spacenet-backend | Flask REST API (port 5000) |
-| spacenet-db | PostgreSQL database |
-| spacenet-redis | Redis job queue broker |
-| spacenet-worker | Runs simulation jobs (Phase 1 + 2) |
-| spacenet-worker-plot | Runs visualization/GIF jobs |
-
-## Running a Simulation
+You can still locate your experiments in the project directory under `spacenet-backend/local_workspace/`
 
 ## Running a Simulation
 
@@ -97,7 +121,19 @@ experiment.
 
 **Note:** Configurations with more satellites/orbits can take significantly longer and are CPU/memory-intensive - expect them to strain a laptop. Use the reduced configuration above for local testing.
 
+### Current simulation limitations
+
+- External TLEs can be imported to the app using the TLE page however it is expected to contain exactly the number fo satellites that are of interest for the experiment. This is a possible cause of `index out of range` errors if encountered.
+- Current App version only supports multi-shell scenario for starting epoch at 27th Sept 2024 00:00:00 +-10 days, starlink operator and supporting only 2 shells (low incl and high incl Walker Delta). Please find the multi-shell specs below:
+![Shell1](img/shell1.png)
+![Shell2](img/shell2.png)
+- Phase2 ping and iPerf results highly depend on the system's computing cores as well as the experiment setup. Therefore for a specific desired contellation spec if certain source-detination pair given `destination net unreachable` error, try using a different source-destination pair.
+
 ## Common Issues
+
+**FATAL: password authentication failed for user "\${USER}"**
+This error arises when the container is not authorized for the `${USER}` currently inside the `.env`. If you have not yet built any experiments for this user crediential, it is advised to [rebuild the app](#rebuilding-the-app). However if you have already built your experiments and your `.env` file has lost the original credentials then retrieve your original credentials from the history and [rebuild the app](#rebuilding-the-app).
+
 
 **Port already in use:**
 ```bash
@@ -117,30 +153,29 @@ and wait for it to fully start before running `docker compose` commands.
 
 **Database errors:**
 
-### Restarting the app (keeps your data)
-
+To inspect the database directly, open a `psql` shell in the database container:
 ```bash
-docker compose down
-docker compose up --build
+docker exec -it spacenet-db psql -U spacenet_user -d spacenet_db
 ```
 
-### Full reset - permanently deletes all experiments, TLEs, and ground stations from the database (your `local_workspace/` files are NOT affected, but they will no longer show up in the app)
+## What Each Container Does
 
-```bash
-docker compose down -v
-docker compose up --build
-```
-
-**Simulation taking too long:** Reduce in Edit Config - Orbits: 4, Sat per
-orbit: 6, TimeStepCount: 3.
+| Container | Purpose |
+|---|---|
+| spacenet-gui | Next.js frontend (port 3000) |
+| spacenet-backend | Flask REST API (port 5000) |
+| spacenet-db | PostgreSQL database |
+| spacenet-redis | Redis job queue broker |
+| spacenet-worker | Runs simulation jobs (Phase 1 + 2) |
+| spacenet-worker-plot | Runs visualization/GIF jobs |
 
 ## Repository Structure
 
 ```
 VTSpaceNetApp/
-├── docker-compose.yml              # All container definitions
-├── .env                             # Database credentials
-├── spacenet-gui/                    # Frontend (Next.js) - part of main repo
+├── docker-compose.yml                # All container definitions
+├── .env.example                      # Template for .env (database credentials)
+├── spacenet-gui/                     # Frontend (Next.js) - part of main repo
 └── spacenet-backend/                 # Backend (Flask + workers)
     ├── dynamic-topology-generator/   # Submodule → VTSpaceNetPhase1 (orbit sim)
     └── constellation-simulator-main/ # Submodule → VTSpaceNetPhase2 (emulation)
@@ -152,6 +187,11 @@ VTSpaceNetApp/
 - **Backend:** Flask (Python), PostgreSQL, Redis, RQ workers
 - **Simulation:** Skyfield (SGP4), NetworkX (Floyd-Warshall)
 - **Emulation:** Mininet v2.3.0
+
+## License
+
+This repository is licensed under the GNU General Public License v3.0 only
+(GPL-3.0-only). See [LICENSE](LICENSE) for the full text.
 
 ---
 Virginia Tech, Aerospace & Ocean Engineering | Dr. Samantha Parry Kenyon

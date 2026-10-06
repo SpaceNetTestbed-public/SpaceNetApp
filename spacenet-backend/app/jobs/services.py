@@ -234,23 +234,26 @@ def process_config_gif_maker(experiment_id, gif_name):
             job.save_meta()
 
 
-def _looks_generated(tle_path: str) -> bool:
+def _looks_generated(tle_path: str, op_name: str) -> bool:
     """
     True only if every satellite name line looks generator-produced.
 
-    generate_fake_TLE names satellites '<op_name>-<1000+n>' in lowercase
-    ('starlink-1000'); Celestrak's real files use uppercase ('STARLINK-32423').
+    generate_fake_TLE names satellites '<op_name>-<1000+n>' in uppercase
+    ('STARLINK-1000'); Celestrak's real files use uppercase ('STARLINK-32423').
     Deleting a real bundled TLE is unrecoverable - they are gitignored, and a
     historical epoch cannot be re-fetched from Celestrak's current feed.
     """
     with open(tle_path, "r") as f:
-        for line in f:
-            stripped = line.strip()
-            if not stripped or stripped[0].isdigit():
-                continue  # TLE data line 1/2, not a name line
-            if not stripped.startswith("starlink-"):
-                return False
-    return True
+        for itr, line in enumerate(f):
+            stripped = line.strip(" ") #str for NORAD iD, list for 2nd and 3rd sat TLE line
+            if stripped.startswith(f"{op_name}-") == str:
+                continue  # Ignore satellite NORAD ID
+            else:
+                if stripped[0] == '1':
+                    line_split = stripped.split(" ")
+                    if line_split[1][-1] == 'F': #If F classifier exists for every a single satellite then its either SpaceNet generated or manually amended so not a real TLE
+                        return True
+    return False
 
 
 def clear_stale_generated_tles(experiment_id: int) -> None:
@@ -269,6 +272,7 @@ def clear_stale_generated_tles(experiment_id: int) -> None:
     if not sat_config or not sat_config.get("generate_TLE"):
         return
     sdt = sat_config.get("Sim_Date_Time", {})
+    op_name = sat_config.get("operator_name")
     try:
         # Mirrors generate_TLE_main's calendar.timegm-based filename.
         sim_ts = calendar.timegm((
@@ -277,15 +281,15 @@ def clear_stale_generated_tles(experiment_id: int) -> None:
         ))
     except (KeyError, TypeError, ValueError):
         return
-    # The generator hardcodes the starlink_tles/ subfolder and file prefix.
+    # The generator hardcodes the <op_name>_tles/ subfolder and file prefix.
     stale_tle = os.path.join(
-        sat_config.get("TLEFilePath", ""), "starlink_tles", f"starlink_{sim_ts}"
+        sat_config.get("TLEFilePath", ""), f"{op_name}_tles", f"{op_name}_{sim_ts}"
     )
     if os.path.isfile(stale_tle):
         # Guard beyond the original fix: experiments created before the default
-        # sim date moved off 2024-09-27 22:15:06 still target starlink_1727475306,
+        # sim date moved off 2024-09-27 22:15:06 still target <op_name>_1727475306,
         # which is a REAL bundled TLE. Deleting it would be unrecoverable.
-        if not _looks_generated(stale_tle):
+        if not _looks_generated(stale_tle, op_name):
             raise RuntimeError(
                 f"Refusing to delete {stale_tle}: it contains real TLE entries, so this "
                 "experiment's simulation date collides with a bundled real TLE file. "

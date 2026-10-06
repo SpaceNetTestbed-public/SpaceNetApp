@@ -1,3 +1,4 @@
+import os
 from flask import Flask
 from flasgger import Swagger
 from .config import Config
@@ -32,7 +33,14 @@ def create_app():
     app.config.from_object(Config)
     app.config["SWAGGER"] = {"title": "Auth API", "uiversion": 3}
 
-    CORS(app)  # allow all origins
+    cors_origins = [
+        origin.strip()
+        for origin in os.getenv(
+            "CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000"
+        ).split(",")
+        if origin.strip()
+    ]
+    CORS(app, origins=cors_origins)
 
     # Initialize extensions
     rq.init_app(app)

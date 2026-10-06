@@ -20,13 +20,12 @@ import { getApiErrorMessage } from '@/lib/utils'
 interface SatConfigFormProps {
   config: SatConfig
   onChange: (config: SatConfig) => void
-  tleLocked?: boolean
   // True when landing from a fresh create (?new=true) — lets untouched
   // default fields render as placeholders instead of pre-filled values.
   isNew?: boolean
 }
 
-export function SatConfigForm({ config, onChange, tleLocked = false, isNew = false }: SatConfigFormProps) {
+export function SatConfigForm({ config, onChange, isNew = false }: SatConfigFormProps) {
   const [tleFiles, setTLEFiles] = useState<TLEFile[]>([]);
   const updateField = <K extends keyof SatConfig>(field: K, value: SatConfig[K]) => {
     onChange({ ...config, [field]: value })
@@ -276,18 +275,25 @@ export function SatConfigForm({ config, onChange, tleLocked = false, isNew = fal
               </label>
               <p className="text-xs text-light-text/60 dark:text-dark-subtext">
                 {config.tle_id !== -1
-                  ? 'Unavailable while a custom TLE file is selected — Phase 1 uses the uploaded file.'
-                  : tleLocked
-                    ? 'Locked because this experiment has already been run.'
-                    : 'Generate synthetic TLEs from the shell configuration below instead of loading a TLE file.'}
+                  ? 'Turning this on clears the selected TLE file.'
+                  : 'Generate synthetic TLEs from the shell configuration below instead of loading a TLE file.'}
               </p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
               <input
                 type="checkbox"
                 checked={config.generate_TLE === true}
-                disabled={tleLocked || config.tle_id !== -1}
-                onChange={(e) => updateField('generate_TLE', e.target.checked)}
+                onChange={(e) => {
+                  // Mirror of the TLE File select below: generation and a
+                  // selected file are mutually exclusive, so enabling
+                  // generation clears the file in the same update.
+                  const checked = e.target.checked
+                  onChange({
+                    ...config,
+                    generate_TLE: checked,
+                    ...(checked ? { tle_id: -1 } : {}),
+                  })
+                }}
                 className="sr-only peer"
                 aria-label="Generate custom TLEs"
               />
@@ -332,8 +338,8 @@ export function SatConfigForm({ config, onChange, tleLocked = false, isNew = fal
           {config.generate_TLE === false && config.tle_id !== -1 && (
             <p className="text-[11px] text-amber-600 dark:text-amber-400 flex items-start gap-1 font-medium" role="status">
               <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" aria-hidden="true" />
-              TLE generation is disabled for this experiment — Phase 1 will load a real
-              TLE file instead of generating orbits from the shells below. If the TLE
+              TLE generation is now disabled for this setting — Phase 1 will either load a given external
+              TLE file or find a real TLE from SpaceNet database. If the TLE
               file&apos;s satellite count doesn&apos;t match the shell configuration, the run
               will fail.
             </p>

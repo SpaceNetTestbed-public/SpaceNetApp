@@ -33,6 +33,7 @@ interface VisualizationPanelProps {
 // selection actually looks like on the plot.
 const COLOR_SWATCHES: Record<string, string> = {
   green: '#22c55e',
+  lime: '#84cc16',
   red: '#ef4444',
   blue: '#3b82f6',
   orange: '#f97316',
