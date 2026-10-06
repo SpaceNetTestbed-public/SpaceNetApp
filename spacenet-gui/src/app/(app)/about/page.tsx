@@ -252,7 +252,7 @@ export default function AboutPage() {
               </p>
             </Card>
           </a>
-          <a href="mailto:yoshwanpathipati@vt.edu">
+          <a href="mailto:yoshwanpathipati@vt.edu?cc=suryaryan@vt.edu">
             <Card className={`${floatingTileClass} p-6 flex flex-col items-center text-center`}>
               <div className="h-12 w-12 rounded-xl bg-light-bg dark:bg-dark-bg flex items-center justify-center mb-4">
                 <Mail className="h-6 w-6 text-light-text dark:text-dark-text" />

@@ -332,7 +332,7 @@ TLEFilePath: /path/to/tle/files/`
                       → SciTech 2025 Manuscript (DOI) <ExternalLink className="h-3.5 w-3.5" />
                     </a>
                     <a
-                      href="mailto:anthonymai@vt.edu"
+                      href="mailto:suryaryan@vt.edu"
                       className="flex items-center gap-2 text-sm text-vt-maroon hover:text-vt-maroon-hover"
                     >
                       → Contact Developer
