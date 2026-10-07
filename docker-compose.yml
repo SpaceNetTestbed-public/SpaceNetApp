@@ -2,7 +2,7 @@ services:
 
   db:
     image: postgres:15
-    container_name: spacenet-db
+    container_name: spacenet-pub-db
     restart: unless-stopped
     env_file:
       - .env
@@ -13,19 +13,19 @@ services:
 
   redis:
     image: redis:7
-    container_name: spacenet-redis
+    container_name: spacenet-pub-redis
     ports:
       - "${BIND_HOST:-127.0.0.1}:6379:6379"
     restart: unless-stopped
 
   backend:
     build: ./spacenet-backend
-    container_name: spacenet-backend
+    container_name: spacenet-pub-backend
     depends_on:
       - db
       - redis
     ports:
-      - "${BIND_HOST:-127.0.0.1}:5000:5000"
+      - "${BIND_HOST:-127.0.0.1}:${BACKEND_BIND_PORT:-5000}:${BACKEND_BIND_PORT:-5000}"
     volumes:
       - ./spacenet-backend:/app
     env_file:
@@ -41,7 +41,7 @@ services:
 
   worker:
     build: ./spacenet-backend
-    container_name: spacenet-worker
+    container_name: spacenet-pub-worker
     privileged: true
     depends_on:
       - redis
@@ -59,7 +59,7 @@ services:
 
   worker_plot:
     build: ./spacenet-backend
-    container_name: spacenet-worker-plot
+    container_name: spacenet-pub-worker-plot
     privileged: true
     depends_on:
       - redis
@@ -77,7 +77,7 @@ services:
 
   frontend:
     build: ./spacenet-gui
-    container_name: spacenet-gui
+    container_name: spacenet-pub-gui
     ports:
       - "${BIND_HOST:-127.0.0.1}:3000:3000"
     volumes:

@@ -28,7 +28,6 @@ satellite constellations, generates network topology and routing tables, and emu
   wsl --install
   ```
   This will activate WSL2 and install an Ubuntu distribution. For Linux or Mac, follow the instructions in the linked documentation.
-- An SSH key added to your GitHub account and paired to your local machine (submodules clone over SSH) <!-- NOTE: Remove this when the public repo submodules are updated to HTTP -->
 - 16GB RAM recommended (simulation is compute-heavy)
 
 ## First-Time Setup
@@ -37,8 +36,8 @@ Run the following commands in order:
 
 1. Clone this repo
 ```bash
-git clone https://github.com/VTSpaceNetLab/VTSpaceNetApp.git
-cd VTSpaceNetApp
+git clone https://github.com/SpaceNetTestbed-public/SpaceNetApp.git
+cd SpaceNetApp
 ```
 
 2. Initialize submodules (Phase 1 + Phase 2 simulation engines)
@@ -60,7 +59,7 @@ git submodule update --init --recursive
     Copy-Item spacenet-gui\.env.example spacenet-gui\.env
     ``` 
 
-    > NOTE: Users are strongly advised to change the Postgres credentials in `.env` before moving to the next step. This credential would always be verified by SpaceNet processes whenever the app restarts further in the future. A system can only have one Postgres database volume and ONLY ACCESSIBLE to the set user credentials!
+    > NOTE: Users are strongly advised to change the Postgres credentials in `.env` before moving to the next step. This credential would always be verified by SpaceNet processes whenever the app restarts further in the future. A system can only have one Postgres database volume and ONLY ACCESSIBLE to the set user credentials! **Please refrain from uncommenting any other variables under beta-testing**
 
 4. Build and start all the containers. (First-time build can take some time.)
 ```bash
@@ -141,13 +140,6 @@ netstat -ano | findstr :3000
 taskkill /PID 12345 /F
 ```
 
-**Submodule errors (including "Permission denied (publickey)"):**
-Make sure your SSH key is added to your GitHub account and you have access
-to `VTSpaceNetPhase1` and `VTSpaceNetPhase2`, then:
-```bash
-git submodule update --init --recursive
-```
-
 **Docker Desktop not running:** Open Docker Desktop from your Start menu
 and wait for it to fully start before running `docker compose` commands.
 
@@ -162,12 +154,12 @@ docker exec -it spacenet-db psql -U spacenet_user -d spacenet_db
 
 | Container | Purpose |
 |---|---|
-| spacenet-gui | Next.js frontend (port 3000) |
-| spacenet-backend | Flask REST API (port 5000) |
-| spacenet-db | PostgreSQL database |
-| spacenet-redis | Redis job queue broker |
-| spacenet-worker | Runs simulation jobs (Phase 1 + 2) |
-| spacenet-worker-plot | Runs visualization/GIF jobs |
+| spacenet-pub-gui | Next.js frontend (port 3000) |
+| spacenet-pub-backend | Flask REST API (port 5000) |
+| spacenet-pub-db | PostgreSQL database |
+| spacenet-pub-redis | Redis job queue broker |
+| spacenet-pub-worker | Runs simulation jobs (Phase 1 + 2) |
+| spacenet-pub-worker-plot | Runs visualization/GIF jobs |
 
 ## Repository Structure
 
@@ -177,8 +169,8 @@ VTSpaceNetApp/
 ├── .env.example                      # Template for .env (database credentials)
 ├── spacenet-gui/                     # Frontend (Next.js) - part of main repo
 └── spacenet-backend/                 # Backend (Flask + workers)
-    ├── dynamic-topology-generator/   # Submodule → VTSpaceNetPhase1 (orbit sim)
-    └── constellation-simulator-main/ # Submodule → VTSpaceNetPhase2 (emulation)
+    ├── dynamic-topology-generator/   # Submodule → SpaceNetPhase1 (orbit sim)
+    └── constellation-simulator-main/ # Submodule → SpaceNetPhase2 (emulation)
 ```
 
 ## Tech Stack
